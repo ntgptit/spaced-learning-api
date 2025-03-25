@@ -8,7 +8,6 @@ import java.util.stream.Collectors;
 import org.apache.commons.collections4.CollectionUtils;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.stereotype.Component;
 
 import com.spacedlearning.dto.common.PageResponse;
 
@@ -16,7 +15,6 @@ import com.spacedlearning.dto.common.PageResponse;
  * Utility class for handling pagination operations. Provides methods to convert
  * Spring Data Page objects to PageResponse DTOs.
  */
-@Component
 public class PageUtils {
 
 	/**
