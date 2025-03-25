@@ -36,27 +36,27 @@ public class SecurityConfig {
 
 	private final JwtAuthorizationFilter jwtAuthorizationFilter;
 
-	/**
-	 * Creates an AuthenticationManager bean.
-	 */
-	@Bean
-	public AuthenticationManager authenticationManager(AuthenticationConfiguration authConfig) throws Exception {
+    /**
+     * Creates an AuthenticationManager bean.
+     */
+    @Bean
+    AuthenticationManager authenticationManager(AuthenticationConfiguration authConfig) throws Exception {
 		return authConfig.getAuthenticationManager();
 	}
 
-	/**
+    /**
      * Creates a PasswordEncoder bean for secure password hashing.
      */
     @Bean
-    public PasswordEncoder passwordEncoder() {
+    PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder(12);
     }
 
-	/**
-	 * Configures the security filter chain.
-	 */
-	@Bean
-	public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+    /**
+     * Configures the security filter chain.
+     */
+    @Bean
+    SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
 		return http.csrf(AbstractHttpConfigurer::disable)
 				.authorizeHttpRequests(
 						auth -> auth.requestMatchers(PUBLIC_ENDPOINTS).permitAll().anyRequest().authenticated())

@@ -16,8 +16,8 @@ import com.github.benmanes.caffeine.cache.Caffeine;
 public class CacheConfig {
 
     @Bean
-    public CacheManager cacheManager() {
-        CaffeineCacheManager cacheManager = new CaffeineCacheManager();
+	CacheManager cacheManager() {
+        final CaffeineCacheManager cacheManager = new CaffeineCacheManager();
 
         // Configure cache names
         cacheManager
@@ -31,7 +31,7 @@ public class CacheConfig {
     }
 
     @Bean
-    public Caffeine<Object, Object> caffeineCacheBuilder() {
+	Caffeine<Object, Object> caffeineCacheBuilder() {
         return Caffeine.newBuilder().expireAfterWrite(Duration.ofMinutes(30)).maximumSize(1000);
     }
 
@@ -40,15 +40,15 @@ public class CacheConfig {
      * needed
      */
     @Bean
-    public CacheManager publicModulesCacheManager() {
-        CaffeineCacheManager cacheManager = new CaffeineCacheManager("publicModules");
+	CacheManager publicModulesCacheManager() {
+        final CaffeineCacheManager cacheManager = new CaffeineCacheManager("publicModules");
         cacheManager.setCaffeine(Caffeine.newBuilder().expireAfterWrite(Duration.ofHours(1)).maximumSize(200));
         return cacheManager;
     }
 
     @Bean
-    public CacheManager recentModulesCacheManager() {
-        CaffeineCacheManager cacheManager = new CaffeineCacheManager("recentModules");
+	CacheManager recentModulesCacheManager() {
+        final CaffeineCacheManager cacheManager = new CaffeineCacheManager("recentModules");
         cacheManager.setCaffeine(Caffeine.newBuilder().expireAfterWrite(Duration.ofMinutes(15)).maximumSize(500));
         return cacheManager;
     }

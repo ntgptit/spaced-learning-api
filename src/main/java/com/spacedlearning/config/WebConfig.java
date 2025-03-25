@@ -26,11 +26,11 @@ public class WebConfig implements WebMvcConfigurer {
 				.exposedHeaders("Authorization").allowCredentials(true).maxAge(3600); // 1 hour
 	}
 
-	/**
-	 * Configure locale resolver for internationalization.
-	 */
-	@Bean
-	public LocaleResolver localeResolver() {
+    /**
+     * Configure locale resolver for internationalization.
+     */
+    @Bean
+    LocaleResolver localeResolver() {
 		final AcceptHeaderLocaleResolver localeResolver = new AcceptHeaderLocaleResolver();
 		localeResolver.setDefaultLocale(Locale.US);
 		return localeResolver;
