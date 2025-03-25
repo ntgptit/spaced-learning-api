@@ -15,12 +15,12 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.kardio.dto.auth.AuthRequest;
-import com.kardio.dto.auth.AuthResponse;
-import com.kardio.dto.user.UserResponse;
-import com.kardio.entity.User;
-import com.kardio.exception.ApiError;
 import com.kardio.mapper.UserMapper;
+import com.spacedlearning.dto.auth.AuthRequest;
+import com.spacedlearning.dto.auth.AuthResponse;
+import com.spacedlearning.dto.user.UserResponse;
+import com.spacedlearning.entity.User;
+import com.spacedlearning.exception.ApiError;
 
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -73,10 +73,10 @@ public class JwtAuthenticationFilter extends UsernamePasswordAuthenticationFilte
             // Authenticate using the authentication manager
             return authenticationManager.authenticate(authentication);
 
-        } catch (IOException e) {
+        } catch (final IOException e) {
             log.error("Failed to parse authentication request", e);
             throw new AuthenticationServiceException("Failed to parse authentication request", e);
-        } catch (NullPointerException e) {
+        } catch (final NullPointerException e) {
             log.error("Invalid authentication request: {}", e.getMessage());
             throw new AuthenticationServiceException("Invalid authentication request: " + e.getMessage(), e);
         }

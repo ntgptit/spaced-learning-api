@@ -10,9 +10,10 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.kardio.entity.User;
-import com.kardio.exception.KardioException;
-import com.kardio.repository.UserRepository;
+import com.spacedlearning.entity.User;
+import com.spacedlearning.entity.enums.UserStatus;
+import com.spacedlearning.exception.SpacedLearningException;
+import com.spacedlearning.repository.UserRepository;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -29,12 +30,28 @@ public class CustomUserDetailsService implements UserDetailsService {
     private final UserRepository userRepository;
 
     /**
+     * Builds a UserDetails object from a User entity.
+     *
+     * @param user The user entity
+     * @return A UserDetails object
+     */
+    private UserDetails buildUserDetails(User user) {
+        // Create simple list with role USER
+        final List<SimpleGrantedAuthority> authorities = List.of(
+            new SimpleGrantedAuthority("ROLE_USER")
+        );
+
+        // Create CustomUserDetails
+        return new CustomUserDetails(user, authorities);
+    }
+
+	/**
      * Loads a user by username (email).
      *
      * @param username The username (email) to load
      * @return A UserDetails object
      * @throws UsernameNotFoundException if the user is not found
-     * @throws KardioException           if the user account is disabled
+     * @throws SpacedLearningException if the user account is disabled
      */
     @Override
     @Transactional(readOnly = true)
@@ -51,30 +68,12 @@ public class CustomUserDetailsService implements UserDetailsService {
         });
 
         // Check if user is active
-        if (!user.isActive()) {
+        if (!UserStatus.ACTIVE.equals(user.getStatus())) {
             log.warn("User is inactive: {}", username);
-            throw new KardioException("Account is disabled", org.springframework.http.HttpStatus.UNAUTHORIZED);
+            throw new SpacedLearningException("Account is disabled", org.springframework.http.HttpStatus.UNAUTHORIZED);
         }
 
         // Create UserDetails
         return buildUserDetails(user);
-    }
-
-    /**
-     * Builds a UserDetails object from a User entity.
-     *
-     * @param user The user entity
-     * @return A UserDetails object
-     */
-    private UserDetails buildUserDetails(User user) {
-        // Convert roles to authorities
-        final List<SimpleGrantedAuthority> authorities = user
-            .getRoles()
-            .stream()
-            .map(role -> new SimpleGrantedAuthority("ROLE_" + role.getName()))
-            .toList();
-
-        // Create CustomUserDetails with simplified constructor
-        return new CustomUserDetails(user, authorities);
     }
 }

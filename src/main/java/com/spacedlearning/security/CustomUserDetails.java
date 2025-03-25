@@ -5,6 +5,7 @@ import java.util.Collection;
 import org.springframework.security.core.GrantedAuthority;
 
 import com.spacedlearning.entity.User;
+import com.spacedlearning.entity.enums.UserStatus;
 
 import lombok.Getter;
 
@@ -17,9 +18,19 @@ public class CustomUserDetails extends org.springframework.security.core.userdet
 
     private static final long serialVersionUID = 1L;
 
+    /**
+     * Determines if the user is active based on their status.
+     *
+     * @param user The user to check
+     * @return true if the user status is ACTIVE, false otherwise
+     */
+    private static boolean isUserActive(User user) {
+        return user != null && UserStatus.ACTIVE.equals(user.getStatus());
+    }
+
     private transient User user;
 
-    /**
+	/**
      * Constructs a CustomUserDetails from a User entity
      *
      * @param user        The original User entity
@@ -29,10 +40,10 @@ public class CustomUserDetails extends org.springframework.security.core.userdet
         super(
             user.getEmail(),
             user.getPassword(),
-            user.isActive(),
-            true, // accountNonExpired - Không cần thiết truyền vào, mặc định true
-            true, // credentialsNonExpired - Không cần thiết truyền vào, mặc định true
-            true, // accountNonLocked - Không cần thiết truyền vào, mặc định true
+            isUserActive(user),
+            true, // accountNonExpired
+            true, // credentialsNonExpired
+            true, // accountNonLocked
             authorities);
         this.user = user;
     }

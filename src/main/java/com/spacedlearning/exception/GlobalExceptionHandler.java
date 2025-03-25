@@ -11,6 +11,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ResponseEntity;
+import org.springframework.lang.NonNull;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.validation.FieldError;
@@ -136,8 +137,8 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 	 * Handle validation exceptions from @Valid
 	 */
 	@Override
-	protected ResponseEntity<Object> handleMethodArgumentNotValid(MethodArgumentNotValidException ex,
-			HttpHeaders headers, HttpStatusCode status, WebRequest request) {
+	protected ResponseEntity<Object> handleMethodArgumentNotValid(@NonNull MethodArgumentNotValidException ex,
+			@NonNull HttpHeaders headers, @NonNull HttpStatusCode status, @NonNull WebRequest request) {
 
 		log.error("Validation error: {}", ex.getMessage());
 
@@ -160,6 +161,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 	/**
 	 * Handle method argument type mismatch
 	 */
+	@SuppressWarnings("null")
 	@ExceptionHandler(MethodArgumentTypeMismatchException.class)
 	public ResponseEntity<ApiError> handleMethodArgumentTypeMismatch(MethodArgumentTypeMismatchException ex,
 			WebRequest request) {
@@ -182,8 +184,9 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 	 * Handle missing request parameters
 	 */
 	@Override
-	protected ResponseEntity<Object> handleMissingServletRequestParameter(MissingServletRequestParameterException ex,
-			HttpHeaders headers, HttpStatusCode status, WebRequest request) {
+	protected ResponseEntity<Object> handleMissingServletRequestParameter(
+			@NonNull MissingServletRequestParameterException ex, @NonNull HttpHeaders headers,
+			@NonNull HttpStatusCode status, @NonNull WebRequest request) {
 
 		log.error("Missing parameter: {}", ex.getMessage());
 

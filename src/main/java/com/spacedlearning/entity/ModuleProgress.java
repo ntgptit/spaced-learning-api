@@ -38,11 +38,9 @@ import lombok.Setter;
 @Table(name = "module_progress", schema = "spaced_learning")
 public class ModuleProgress extends BaseEntity {
 
-
-
 	@NotNull
 	@ManyToOne(fetch = FetchType.LAZY)
-	@JoinColumn(name = "lesson_id", nullable = false)
+	@JoinColumn(name = "module_id", nullable = false)
 	private Module module;
 
 	@NotNull

@@ -20,7 +20,7 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.kardio.exception.ApiError;
+import com.spacedlearning.exception.ApiError;
 
 import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.JwtException;
@@ -42,11 +42,11 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class JwtAuthorizationFilter extends OncePerRequestFilter {
 
+    private static final String BEARER_PREFIX = "Bearer ";
     private final JwtTokenProvider tokenProvider;
     private final UserDetailsService userDetailsService;
-    private final ObjectMapper objectMapper;
 
-    private static final String BEARER_PREFIX = "Bearer ";
+    private final ObjectMapper objectMapper;
 
     // Paths that should be excluded from JWT validation
     private final RequestMatcher publicPaths = new OrRequestMatcher(
@@ -57,17 +57,6 @@ public class JwtAuthorizationFilter extends OncePerRequestFilter {
         new AntPathRequestMatcher("/v3/api-docs/**"),
         new AntPathRequestMatcher("/actuator/health"),
         new AntPathRequestMatcher("/error"));
-
-    /**
-     * Determine if a request should not be filtered.
-     *
-     * @param request The HTTP request
-     * @return true if the request should be skipped
-     */
-    @Override
-    protected boolean shouldNotFilter(HttpServletRequest request) {
-        return publicPaths.matches(request);
-    }
 
     /**
      * Filters incoming requests to validate JWT tokens and set up security context.
@@ -97,13 +86,29 @@ public class JwtAuthorizationFilter extends OncePerRequestFilter {
             // Continue with filter chain if no error was sent
             filterChain.doFilter(request, response);
 
-        } catch (AuthenticationException e) {
+        } catch (final AuthenticationException e) {
             log.error("Authentication error: {}", e.getMessage());
             sendErrorResponse(response, e.getMessage(), HttpStatus.UNAUTHORIZED);
-        } catch (Exception e) {
+        } catch (final Exception e) {
             log.error("Unexpected error in JWT filter: {}", e.getMessage(), e);
             sendErrorResponse(response, "Internal security error", HttpStatus.INTERNAL_SERVER_ERROR);
         }
+    }
+
+    /**
+     * Extracts JWT token from request Authorization header.
+     *
+     * @param request The HTTP request
+     * @return The JWT token or null if not found
+     */
+    private String extractTokenFromRequest(HttpServletRequest request) {
+        final String bearerToken = request.getHeader(HttpHeaders.AUTHORIZATION);
+
+        if (StringUtils.hasText(bearerToken) && bearerToken.startsWith(BEARER_PREFIX)) {
+            return bearerToken.substring(BEARER_PREFIX.length());
+        }
+
+        return null;
     }
 
     /**
@@ -132,10 +137,9 @@ public class JwtAuthorizationFilter extends OncePerRequestFilter {
                 // Set authentication in security context
                 SecurityContextHolder.getContext().setAuthentication(authToken);
                 log.debug("Set authentication for user: {}", username);
-                return true;
             }
             return true; // Token is valid but didn't meet criteria
-        } catch (ExpiredJwtException e) {
+        } catch (final ExpiredJwtException e) {
             log.warn("JWT token expired: {}", e.getMessage());
             sendErrorResponse(response, "Token has expired", HttpStatus.UNAUTHORIZED);
             return false;
@@ -143,27 +147,11 @@ public class JwtAuthorizationFilter extends OncePerRequestFilter {
             log.warn("Invalid JWT token: {}", e.getMessage());
             sendErrorResponse(response, "Invalid token format", HttpStatus.UNAUTHORIZED);
             return false;
-        } catch (JwtException e) {
+        } catch (final JwtException e) {
             log.error("JWT token validation error: {}", e.getMessage());
             sendErrorResponse(response, "Token validation failed", HttpStatus.UNAUTHORIZED);
             return false;
         }
-    }
-
-    /**
-     * Extracts JWT token from request Authorization header.
-     *
-     * @param request The HTTP request
-     * @return The JWT token or null if not found
-     */
-    private String extractTokenFromRequest(HttpServletRequest request) {
-        final String bearerToken = request.getHeader(HttpHeaders.AUTHORIZATION);
-
-        if (StringUtils.hasText(bearerToken) && bearerToken.startsWith(BEARER_PREFIX)) {
-            return bearerToken.substring(BEARER_PREFIX.length());
-        }
-
-        return null;
     }
 
     /**
@@ -191,5 +179,16 @@ public class JwtAuthorizationFilter extends OncePerRequestFilter {
         response.setStatus(status.value());
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);
         objectMapper.writeValue(response.getOutputStream(), errorResponse);
+    }
+
+    /**
+     * Determine if a request should not be filtered.
+     *
+     * @param request The HTTP request
+     * @return true if the request should be skipped
+     */
+    @Override
+	protected boolean shouldNotFilter(@NonNull HttpServletRequest request) {
+        return publicPaths.matches(request);
     }
 }

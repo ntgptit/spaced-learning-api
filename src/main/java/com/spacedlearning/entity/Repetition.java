@@ -1,7 +1,5 @@
 package com.spacedlearning.entity;
 
-package com.spacedlearning.entity;
-
 import java.time.LocalDate;
 
 import com.spacedlearning.entity.enums.RepetitionOrder;
@@ -20,7 +18,6 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-import lombok.experimental.SuperBuilder;
 
 /**
  * Entity representing a repetition record for spaced learning.
@@ -35,7 +32,7 @@ public class Repetition extends BaseEntity {
 
 	@NotNull
 	@ManyToOne(fetch = FetchType.LAZY)
-	@JoinColumn(name = "lesson_progress_id", nullable = false)
+	@JoinColumn(name = "module_progress_id", nullable = false)
 	private ModuleProgress moduleProgress;
 
 	@NotNull
@@ -49,6 +46,4 @@ public class Repetition extends BaseEntity {
 
 	@Column(name = "review_date")
 	private LocalDate reviewDate;
-
-
 }

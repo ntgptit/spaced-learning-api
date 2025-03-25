@@ -37,6 +37,11 @@ public abstract class BaseEntity {
 	@Column(name = "updated_at")
 	private LocalDateTime updatedAt;
 
+	/**
+	 * When this field is set, the entity is considered deleted (soft delete).
+	 * The @SQLRestriction annotation on the class ensures that entities with
+	 * non-null deletedAt will not be returned in normal queries.
+	 */
 	@Column(name = "deleted_at")
 	private LocalDateTime deletedAt;
 
@@ -50,16 +55,16 @@ public abstract class BaseEntity {
 	}
 
 	/**
-	 * Mark this entity as soft deleted
-	 */
-	public void softDelete() {
-		this.deletedAt = LocalDateTime.now();
-	}
-
-	/**
 	 * Restore a soft-deleted entity
 	 */
 	public void restore() {
-		this.deletedAt = null;
+		deletedAt = null;
+	}
+
+	/**
+	 * Mark this entity as soft deleted
+	 */
+	public void softDelete() {
+		deletedAt = LocalDateTime.now();
 	}
 }
