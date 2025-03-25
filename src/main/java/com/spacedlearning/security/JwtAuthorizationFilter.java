@@ -3,6 +3,7 @@ package com.spacedlearning.security;
 import java.io.IOException;
 import java.time.LocalDateTime;
 
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -16,7 +17,6 @@ import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
 import org.springframework.security.web.util.matcher.OrRequestMatcher;
 import org.springframework.security.web.util.matcher.RequestMatcher;
 import org.springframework.stereotype.Component;
-import org.springframework.util.StringUtils;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -43,9 +43,9 @@ import lombok.extern.slf4j.Slf4j;
 public class JwtAuthorizationFilter extends OncePerRequestFilter {
 
     private static final String BEARER_PREFIX = "Bearer ";
+
     private final JwtTokenProvider tokenProvider;
     private final UserDetailsService userDetailsService;
-
     private final ObjectMapper objectMapper;
 
     // Paths that should be excluded from JWT validation
@@ -56,7 +56,7 @@ public class JwtAuthorizationFilter extends OncePerRequestFilter {
         new AntPathRequestMatcher("/swagger-ui/**"),
         new AntPathRequestMatcher("/v3/api-docs/**"),
         new AntPathRequestMatcher("/actuator/health"),
-        new AntPathRequestMatcher("/error"));
+			new AntPathRequestMatcher("/error"));
 
     /**
      * Filters incoming requests to validate JWT tokens and set up security context.
@@ -72,14 +72,13 @@ public class JwtAuthorizationFilter extends OncePerRequestFilter {
             @NonNull HttpServletRequest request,
             @NonNull HttpServletResponse response,
             @NonNull FilterChain filterChain)
-            throws ServletException,
-                IOException {
+			throws ServletException, IOException {
 
         try {
             // Extract JWT token from Authorization header
             final String token = extractTokenFromRequest(request);
 
-            if (token != null && SecurityContextHolder.getContext().getAuthentication() == null) {
+			if (StringUtils.isNotBlank(token) && SecurityContextHolder.getContext().getAuthentication() == null) {
                 processToken(token, response);
             }
 
@@ -104,7 +103,7 @@ public class JwtAuthorizationFilter extends OncePerRequestFilter {
     private String extractTokenFromRequest(HttpServletRequest request) {
         final String bearerToken = request.getHeader(HttpHeaders.AUTHORIZATION);
 
-        if (StringUtils.hasText(bearerToken) && bearerToken.startsWith(BEARER_PREFIX)) {
+		if (StringUtils.isNotBlank(bearerToken) && bearerToken.startsWith(BEARER_PREFIX)) {
             return bearerToken.substring(BEARER_PREFIX.length());
         }
 
@@ -121,24 +120,27 @@ public class JwtAuthorizationFilter extends OncePerRequestFilter {
      */
     private boolean processToken(String token, HttpServletResponse response) throws IOException {
         try {
-            // Validate token and extract username
-            if (tokenProvider.validateToken(token)) {
-                final String username = tokenProvider.getUsernameFromToken(token);
-
-                // Load user details
-                final UserDetails userDetails = userDetailsService.loadUserByUsername(username);
-
-                // Create authentication token
-                final UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
-                    userDetails,
-                    null,
-                    userDetails.getAuthorities());
-
-                // Set authentication in security context
-                SecurityContextHolder.getContext().setAuthentication(authToken);
-                log.debug("Set authentication for user: {}", username);
+			// Validate token
+			if (!tokenProvider.validateToken(token)) {
+				sendErrorResponse(response, "Invalid token", HttpStatus.UNAUTHORIZED);
+				return false;
             }
-            return true; // Token is valid but didn't meet criteria
+
+			// Extract username and set authentication
+			final String username = tokenProvider.getUsernameFromToken(token);
+
+			// Load user details
+			final UserDetails userDetails = userDetailsService.loadUserByUsername(username);
+
+			// Create authentication token with authorities
+			final UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(userDetails,
+					null, userDetails.getAuthorities());
+
+			// Set authentication in security context
+			SecurityContextHolder.getContext().setAuthentication(authToken);
+			log.debug("Set authentication for user: {}", username);
+			return true;
+
         } catch (final ExpiredJwtException e) {
             log.warn("JWT token expired: {}", e.getMessage());
             sendErrorResponse(response, "Token has expired", HttpStatus.UNAUTHORIZED);

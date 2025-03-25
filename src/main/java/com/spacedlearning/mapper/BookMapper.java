@@ -1,11 +1,12 @@
-// File: src/main/java/com/spacedlearning/mapper/BookMapper.java
 package com.spacedlearning.mapper;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 
+import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Component;
 
@@ -28,27 +29,38 @@ public class BookMapper extends AbstractGenericMapper<Book, BookDetailResponse> 
 	private final ModuleMapper moduleMapper;
 
 	@Override
-    protected Book mapDtoToEntity(BookDetailResponse dto, Book entity) {
+	protected Book mapDtoToEntity(final BookDetailResponse dto, final Book entity) {
+		if (dto == null || entity == null) {
+			return entity;
+		}
+
         if (StringUtils.isNotBlank(dto.getName())) {
             entity.setName(dto.getName());
         }
-        if (dto.getDescription() != null) {
-            entity.setDescription(dto.getDescription());
-        }
+
+		entity.setDescription(dto.getDescription());
+
         if (dto.getStatus() != null) {
             entity.setStatus(dto.getStatus());
         }
+
         if (dto.getDifficultyLevel() != null) {
             entity.setDifficultyLevel(dto.getDifficultyLevel());
         }
+
         if (StringUtils.isNotBlank(dto.getCategory())) {
             entity.setCategory(dto.getCategory());
         }
+
         return entity;
     }
 
 	@Override
-	protected BookDetailResponse mapToDto(Book entity) {
+	protected BookDetailResponse mapToDto(final Book entity) {
+		if (entity == null) {
+			return null;
+		}
+
 		final List<ModuleDetailResponse> modules = moduleMapper.toDtoList(entity.getModules());
 
 		return BookDetailResponse.builder().id(entity.getId()).name(entity.getName())
@@ -58,13 +70,18 @@ public class BookMapper extends AbstractGenericMapper<Book, BookDetailResponse> 
 	}
 
 	@Override
-	protected Book mapToEntity(BookDetailResponse dto) {
+	protected Book mapToEntity(final BookDetailResponse dto) {
+		if (dto == null) {
+			return null;
+		}
+
 		final Book book = new Book();
 		book.setName(dto.getName());
 		book.setDescription(dto.getDescription());
 		book.setStatus(dto.getStatus());
 		book.setDifficultyLevel(dto.getDifficultyLevel());
 		book.setCategory(dto.getCategory());
+
 		return book;
 	}
 
@@ -74,7 +91,7 @@ public class BookMapper extends AbstractGenericMapper<Book, BookDetailResponse> 
 	 * @param request The BookCreateRequest DTO
 	 * @return Book entity
 	 */
-	public Book toEntity(BookCreateRequest request) {
+	public Book toEntity(final BookCreateRequest request) {
 		if (request == null) {
 			return null;
 		}
@@ -96,13 +113,15 @@ public class BookMapper extends AbstractGenericMapper<Book, BookDetailResponse> 
 	 * @param entity The Book entity
 	 * @return BookSummaryResponse DTO
 	 */
-	public BookSummaryResponse toSummaryDto(Book entity) {
-		return entity != null
-				? BookSummaryResponse.builder().id(entity.getId()).name(entity.getName()).status(entity.getStatus())
-						.difficultyLevel(entity.getDifficultyLevel()).category(entity.getCategory())
-						.createdAt(entity.getCreatedAt()).updatedAt(entity.getUpdatedAt())
-						.moduleCount(entity.getModules().size()).build()
-				: null;
+	public BookSummaryResponse toSummaryDto(final Book entity) {
+		if (entity == null) {
+			return null;
+		}
+
+		return BookSummaryResponse.builder().id(entity.getId()).name(entity.getName()).status(entity.getStatus())
+				.difficultyLevel(entity.getDifficultyLevel()).category(entity.getCategory())
+				.createdAt(entity.getCreatedAt()).updatedAt(entity.getUpdatedAt())
+				.moduleCount(entity.getModules() != null ? entity.getModules().size() : 0).build();
 	}
 
 	/**
@@ -111,11 +130,12 @@ public class BookMapper extends AbstractGenericMapper<Book, BookDetailResponse> 
 	 * @param entities The Book entities
 	 * @return List of BookSummaryResponse DTOs
 	 */
-	public List<BookSummaryResponse> toSummaryDtoList(List<Book> entities) {
-		if (entities == null) {
+	public List<BookSummaryResponse> toSummaryDtoList(final List<Book> entities) {
+		if (CollectionUtils.isEmpty(entities)) {
 			return Collections.emptyList();
 		}
-		return entities.stream().map(this::toSummaryDto).toList();
+
+		return entities.stream().filter(Objects::nonNull).map(this::toSummaryDto).toList();
 	}
 
 	/**
@@ -125,7 +145,7 @@ public class BookMapper extends AbstractGenericMapper<Book, BookDetailResponse> 
 	 * @param entity  The Book entity to update
 	 * @return Updated Book entity
 	 */
-	public Book updateFromDto(BookUpdateRequest request, Book entity) {
+	public Book updateFromDto(final BookUpdateRequest request, final Book entity) {
 		if (request == null || entity == null) {
 			return entity;
 		}
@@ -134,9 +154,8 @@ public class BookMapper extends AbstractGenericMapper<Book, BookDetailResponse> 
 			entity.setName(request.getName());
 		}
 
-		if (request.getDescription() != null) {
-			entity.setDescription(request.getDescription());
-		}
+		// Description can be set to null to clear it
+		entity.setDescription(request.getDescription());
 
 		if (request.getStatus() != null) {
 			entity.setStatus(request.getStatus());

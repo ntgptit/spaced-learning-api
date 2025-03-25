@@ -23,7 +23,7 @@ public class MapperConfig {
      * @return A function that creates a map from (UUID, Integer) pairs
      */
     @Bean
-    public Function<List<Object[]>, Map<UUID, Integer>> moduleCountMapFunction() {
+    Function<List<Object[]>, Map<UUID, Integer>> moduleCountMapFunction() {
         return results -> results
             .stream()
             .collect(Collectors.toMap(row -> (UUID) row[0], row -> ((Number) row[1]).intValue(), (a, b) -> a));
