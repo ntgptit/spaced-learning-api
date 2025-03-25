@@ -13,10 +13,11 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class SuccessResponse {
-	private String message;
-	private Boolean success;
-
 	public static SuccessResponse of(String message) {
 		return SuccessResponse.builder().message(message).success(true).build();
 	}
+
+	private String message;
+
+	private Boolean success;
 }

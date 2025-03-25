@@ -15,12 +15,12 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.kardio.mapper.UserMapper;
 import com.spacedlearning.dto.auth.AuthRequest;
 import com.spacedlearning.dto.auth.AuthResponse;
 import com.spacedlearning.dto.user.UserResponse;
 import com.spacedlearning.entity.User;
 import com.spacedlearning.exception.ApiError;
+import com.spacedlearning.mapper.UserMapper;
 
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
