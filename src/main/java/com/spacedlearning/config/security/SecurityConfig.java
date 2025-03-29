@@ -13,10 +13,9 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
-import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
-
-import com.spacedlearning.security.CustomUserDetailsService;
-import com.spacedlearning.security.JwtAuthorizationFilter;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import lombok.RequiredArgsConstructor;
 
@@ -32,11 +31,7 @@ public class SecurityConfig {
 	// Public endpoints that don't require authentication
 	private static final String[] PUBLIC_ENDPOINTS = { "/api/v1/auth/**", "/swagger-ui/**", "/v3/api-docs/**",
 			"/actuator/health", "/error" };
-	private final CustomUserDetailsService userDetailsService;
-
-	private final JwtAuthorizationFilter jwtAuthorizationFilter;
-
-    /**
+	/**
      * Creates an AuthenticationManager bean.
      */
     @Bean
@@ -44,7 +39,20 @@ public class SecurityConfig {
 		return authConfig.getAuthenticationManager();
 	}
 
-    /**
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+        final CorsConfiguration config = new CorsConfiguration();
+        config.addAllowedOriginPattern("*");
+        config.addAllowedHeader("*");
+        config.addAllowedMethod("*");
+        config.setAllowCredentials(false);
+        // config.setMaxAge(...);
+        final UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", config);
+        return source;
+    }
+
+	/**
      * Creates a PasswordEncoder bean for secure password hashing.
      */
     @Bean
@@ -57,11 +65,16 @@ public class SecurityConfig {
      */
     @Bean
     SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-		return http.csrf(AbstractHttpConfigurer::disable)
+		return http
+				.cors(cors -> cors.configurationSource(corsConfigurationSource()))
+				.csrf(AbstractHttpConfigurer::disable)
+//				.authorizeHttpRequests(
+//						auth -> auth.requestMatchers(PUBLIC_ENDPOINTS).permitAll().anyRequest().authenticated())
 				.authorizeHttpRequests(
-						auth -> auth.requestMatchers(PUBLIC_ENDPOINTS).permitAll().anyRequest().authenticated())
+						auth -> auth.requestMatchers(PUBLIC_ENDPOINTS).permitAll().anyRequest().permitAll())
 				.sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-				.addFilterBefore(jwtAuthorizationFilter, UsernamePasswordAuthenticationFilter.class)
-				.userDetailsService(userDetailsService).build();
+//				.addFilterBefore(jwtAuthorizationFilter, UsernamePasswordAuthenticationFilter.class)
+//				.userDetailsService(userDetailsService)
+				.build();
 	}
 }

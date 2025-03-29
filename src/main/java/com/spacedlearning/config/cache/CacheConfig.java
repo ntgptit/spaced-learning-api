@@ -28,7 +28,9 @@ public class CacheConfig {
         // Configure cache names
         cacheManager
             .setCacheNames(
-                Arrays.asList("publicModules", "recentModules", "moduleStatistics", "folders", "vocabularyCounts"));
+						Arrays.asList("publicModules", "recentModules", "moduleStatistics", "folders",
+								"vocabularyCounts", "books", "modules", "bookCategories", "userModuleProgress",
+								"moduleProgress"));
 
         // Default cache configuration
         cacheManager.setCaffeine(caffeineCacheBuilder());
