@@ -25,7 +25,7 @@ public interface RepetitionRepository extends JpaRepository<Repetition, UUID> {
 
 	/**
 	 * Count repetitions by module progress ID and status
-	 * 
+	 *
 	 * @param moduleProgressId Module progress ID
 	 * @param status           Status
 	 * @return Number of repetitions
@@ -34,7 +34,7 @@ public interface RepetitionRepository extends JpaRepository<Repetition, UUID> {
 
 	/**
 	 * Check if repetition exists for module progress and order
-	 * 
+	 *
 	 * @param moduleProgressId Module progress ID
 	 * @param repetitionOrder  Repetition order
 	 * @return true if exists, false otherwise
@@ -43,7 +43,7 @@ public interface RepetitionRepository extends JpaRepository<Repetition, UUID> {
 
 	/**
 	 * Find repetitions by module progress ID (paginated)
-	 * 
+	 *
 	 * @param moduleProgressId Module progress ID
 	 * @param pageable         Pagination information
 	 * @return Page of repetitions
@@ -52,7 +52,7 @@ public interface RepetitionRepository extends JpaRepository<Repetition, UUID> {
 
 	/**
 	 * Find repetition by module progress ID and order
-	 * 
+	 *
 	 * @param moduleProgressId Module progress ID
 	 * @param repetitionOrder  Repetition order
 	 * @return Optional containing repetition
@@ -61,8 +61,17 @@ public interface RepetitionRepository extends JpaRepository<Repetition, UUID> {
 			RepetitionOrder repetitionOrder);
 
 	/**
+	 * Find repetitions by module progress ID and status, ordered by review date
+	 *
+	 * @param moduleProgressId Module progress ID
+	 * @param status           Status to filter by
+	 * @return List of repetitions ordered by review date
+	 */
+	List<Repetition> findByModuleProgressIdAndStatusOrderByReviewDate(UUID moduleProgressId, RepetitionStatus status);
+
+	/**
 	 * Find repetitions by module progress ID
-	 * 
+	 *
 	 * @param moduleProgressId Module progress ID
 	 * @return List of repetitions
 	 */
@@ -70,7 +79,7 @@ public interface RepetitionRepository extends JpaRepository<Repetition, UUID> {
 
 	/**
 	 * Find repetitions due for review on or before a specific date
-	 * 
+	 *
 	 * @param userId     User ID
 	 * @param reviewDate Review date
 	 * @param status     Status to filter by
@@ -81,4 +90,12 @@ public interface RepetitionRepository extends JpaRepository<Repetition, UUID> {
 			+ "AND r.status = :status " + "ORDER BY r.reviewDate ASC")
 	Page<Repetition> findDueRepetitions(@Param("userId") UUID userId, @Param("reviewDate") LocalDate reviewDate,
 			@Param("status") RepetitionStatus status, Pageable pageable);
+
+	/**
+	 * Count total repetitions by module progress ID
+	 *
+	 * @param moduleProgressId Module progress ID
+	 * @return Total number of repetitions
+	 */
+	long countByModuleProgressId(UUID moduleProgressId);
 }

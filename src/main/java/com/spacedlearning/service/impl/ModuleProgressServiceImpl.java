@@ -5,8 +5,6 @@ package com.spacedlearning.service.impl;
 import java.time.LocalDate;
 import java.util.UUID;
 
-import org.springframework.cache.annotation.CacheEvict;
-import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -46,7 +44,7 @@ public class ModuleProgressServiceImpl implements ModuleProgressService {
 
 	@Override
 	@Transactional
-	@CacheEvict(value = { "userModuleProgress", "moduleProgress" }, allEntries = true)
+//	@CacheEvict(value = { "userModuleProgress", "moduleProgress" }, allEntries = true)
 	public ModuleProgressDetailResponse create(ModuleProgressCreateRequest request) {
 		log.debug("Creating new module progress: {}", request);
 
@@ -79,7 +77,7 @@ public class ModuleProgressServiceImpl implements ModuleProgressService {
 
 	@Override
 	@Transactional
-	@CacheEvict(value = { "userModuleProgress", "moduleProgress" }, key = "#id")
+//	@CacheEvict(value = { "userModuleProgress", "moduleProgress" }, key = "#id")
 	public void delete(UUID id) {
 		log.debug("Deleting module progress with ID: {}", id);
 
@@ -101,7 +99,7 @@ public class ModuleProgressServiceImpl implements ModuleProgressService {
 
 	@Override
 	@Transactional(readOnly = true)
-	@Cacheable(value = "moduleProgress", key = "#id")
+//	@Cacheable(value = "moduleProgress", key = "#id")
 	public ModuleProgressDetailResponse findById(UUID id) {
 		log.debug("Finding module progress by ID: {}", id);
 		final ModuleProgress progress = progressRepository.findWithRepetitionsById(id)
@@ -148,7 +146,7 @@ public class ModuleProgressServiceImpl implements ModuleProgressService {
 
 	@Override
 	@Transactional(readOnly = true)
-	@Cacheable(value = "userModuleProgress", key = "#userId + '_' + #moduleId")
+//	@Cacheable(value = "userModuleProgress", key = "#userId + '_' + #moduleId")
 	public ModuleProgressDetailResponse findByUserIdAndModuleId(UUID userId, UUID moduleId) {
 		log.debug("Finding module progress by user ID: {} and module ID: {}", userId, moduleId);
 
@@ -178,7 +176,7 @@ public class ModuleProgressServiceImpl implements ModuleProgressService {
 
 	@Override
 	@Transactional
-	@CacheEvict(value = { "userModuleProgress", "moduleProgress" }, key = "#id")
+//	@CacheEvict(value = { "userModuleProgress", "moduleProgress" }, key = "#id")
 	public ModuleProgressDetailResponse update(UUID id, ModuleProgressUpdateRequest request) {
 		log.debug("Updating module progress with ID: {}, request: {}", id, request);
 

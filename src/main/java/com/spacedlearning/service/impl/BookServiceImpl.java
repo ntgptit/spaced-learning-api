@@ -5,8 +5,6 @@ import java.util.Objects;
 import java.util.UUID;
 
 import org.apache.commons.lang3.StringUtils;
-import org.springframework.cache.annotation.CacheEvict;
-import org.springframework.cache.annotation.Cacheable;
 import org.springframework.context.MessageSource;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -56,7 +54,7 @@ public class BookServiceImpl implements BookService {
 
 	@Override
 	@Transactional
-	@CacheEvict(value = "books", key = "#id")
+//	@CacheEvict(value = "books", key = "#id")
 	public void delete(final UUID id) {
 		Objects.requireNonNull(id, "Book ID must not be null");
 		log.debug("Deleting book with ID: {}", id);
@@ -94,7 +92,7 @@ public class BookServiceImpl implements BookService {
 
 	@Override
 	@Transactional(readOnly = true)
-	@Cacheable(value = "books", key = "#id")
+//	@Cacheable(value = "books", key = "#id")
 	public BookDetailResponse findById(final UUID id) {
 		Objects.requireNonNull(id, "Book ID must not be null");
 		log.debug("Finding book by ID: {}", id);
@@ -105,7 +103,7 @@ public class BookServiceImpl implements BookService {
 
 	@Override
 	@Transactional(readOnly = true)
-	@Cacheable(value = "bookCategories")
+//	@Cacheable(value = "bookCategories")
 	public List<String> getAllCategories() {
 		log.debug("Getting all book categories");
 		return bookRepository.findAllCategories();
@@ -127,7 +125,7 @@ public class BookServiceImpl implements BookService {
 
 	@Override
 	@Transactional
-	@CacheEvict(value = "books", key = "#id")
+//	@CacheEvict(value = "books", key = "#id")
 	public BookDetailResponse update(final UUID id, final BookUpdateRequest request) {
 		Objects.requireNonNull(id, "Book ID must not be null");
 		Objects.requireNonNull(request, "Book update request must not be null");

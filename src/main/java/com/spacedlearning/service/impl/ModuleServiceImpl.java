@@ -4,8 +4,6 @@ import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 
-import org.springframework.cache.annotation.CacheEvict;
-import org.springframework.cache.annotation.Cacheable;
 import org.springframework.context.MessageSource;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -42,7 +40,7 @@ public class ModuleServiceImpl implements ModuleService {
 
 	@Override
 	@Transactional
-	@CacheEvict(value = "bookModules", key = "#result.bookId")
+//	@CacheEvict(value = "bookModules", key = "#result.bookId")
 	public ModuleDetailResponse create(final ModuleCreateRequest request) {
 		Objects.requireNonNull(request, "Module create request must not be null");
 		log.debug("Creating new module: {}", request);
@@ -67,7 +65,7 @@ public class ModuleServiceImpl implements ModuleService {
 
 	@Override
 	@Transactional
-	@CacheEvict(value = { "modules", "bookModules" }, allEntries = true)
+//	@CacheEvict(value = { "modules", "bookModules" }, allEntries = true)
 	public void delete(final UUID id) {
 		Objects.requireNonNull(id, "Module ID must not be null");
 		log.debug("Deleting module with ID: {}", id);
@@ -91,7 +89,7 @@ public class ModuleServiceImpl implements ModuleService {
 
 	@Override
 	@Transactional(readOnly = true)
-	@Cacheable(value = "bookModules", key = "#bookId")
+//	@Cacheable(value = "bookModules", key = "#bookId")
 	public List<ModuleSummaryResponse> findAllByBookId(final UUID bookId) {
 		Objects.requireNonNull(bookId, "Book ID must not be null");
 		log.debug("Finding all modules by book ID: {}", bookId);
@@ -122,7 +120,7 @@ public class ModuleServiceImpl implements ModuleService {
 
 	@Override
 	@Transactional(readOnly = true)
-	@Cacheable(value = "modules", key = "#id")
+//	@Cacheable(value = "modules", key = "#id")
 	public ModuleDetailResponse findById(final UUID id) {
 		Objects.requireNonNull(id, "Module ID must not be null");
 		log.debug("Finding module by ID: {}", id);
@@ -148,7 +146,7 @@ public class ModuleServiceImpl implements ModuleService {
 
 	@Override
 	@Transactional
-	@CacheEvict(value = { "modules", "bookModules" }, allEntries = true)
+//	@CacheEvict(value = { "modules", "bookModules" }, allEntries = true)
 	public ModuleDetailResponse update(final UUID id, final ModuleUpdateRequest request) {
 		Objects.requireNonNull(id, "Module ID must not be null");
 		Objects.requireNonNull(request, "Module update request must not be null");
