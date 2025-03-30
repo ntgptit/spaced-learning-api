@@ -1,6 +1,7 @@
 // File: src/main/java/com/spacedlearning/service/impl/UserServiceImpl.java
 package com.spacedlearning.service.impl;
 
+import java.util.Optional;
 import java.util.UUID;
 
 import org.springframework.data.domain.Page;
@@ -85,10 +86,10 @@ public class UserServiceImpl implements UserService {
 	@Override
 	@Transactional(readOnly = true)
 	public UserResponse getCurrentUser() {
-		final Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-		if (authentication == null || !authentication.isAuthenticated()) {
-			throw SpacedLearningException.forbidden("User not authenticated");
-		}
+		final Authentication authentication = Optional
+				.ofNullable(SecurityContextHolder.getContext().getAuthentication())
+				.filter(Authentication::isAuthenticated)
+				.orElseThrow(() -> SpacedLearningException.forbidden("User not authenticated"));
 
 		final String email = authentication.getName();
 		log.debug("Getting current user with email: {}", email);

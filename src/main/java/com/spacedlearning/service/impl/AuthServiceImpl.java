@@ -25,6 +25,7 @@ import com.spacedlearning.exception.SpacedLearningException;
 import com.spacedlearning.mapper.UserMapper;
 import com.spacedlearning.repository.RoleRepository;
 import com.spacedlearning.repository.UserRepository;
+import com.spacedlearning.security.CustomUserDetailsService;
 import com.spacedlearning.security.JwtTokenProvider;
 import com.spacedlearning.service.AuthService;
 
@@ -48,6 +49,7 @@ public class AuthServiceImpl implements AuthService {
 	private final AuthenticationManager authenticationManager;
 	private final JwtTokenProvider tokenProvider;
 	private final MessageSource messageSource;
+	private final CustomUserDetailsService userDetailsService;
 
 	@Override
 	@Transactional(readOnly = true)
@@ -69,14 +71,13 @@ public class AuthServiceImpl implements AuthService {
 		final String refreshToken = tokenProvider.generateRefreshToken(authentication);
 
 		// Get user details
-		final UserDetails userDetails = (UserDetails) authentication.getPrincipal();
-		final User user = userRepository.findByEmail(userDetails.getUsername())
+		final User user = userRepository.findByEmail(authentication.getName())
 				.orElseThrow(() -> SpacedLearningException.resourceNotFound(messageSource, "resource.user",
-						userDetails.getUsername()));
+						authentication.getName()));
 
 		final UserResponse userResponse = userMapper.toDto(user);
 
-		log.info("User authenticated successfully: {}", userDetails.getUsername());
+		log.info("User authenticated successfully: {}", authentication.getName());
 		return AuthResponse.builder().token(accessToken).refreshToken(refreshToken).user(userResponse).build();
 	}
 
@@ -112,22 +113,38 @@ public class AuthServiceImpl implements AuthService {
 
 			// Extract username and load user
 			final String username = tokenProvider.getUsernameFromToken(request.getRefreshToken());
-			final User user = userRepository.findByEmail(username).orElseThrow(
+
+			// Verify user exists in database
+			final User user = userRepository.findByEmailWithRoles(username).orElseThrow(
 					() -> SpacedLearningException.resourceNotFound(messageSource, "resource.user", username));
 
 			// Create authentication object
-			final UserDetails userDetails = userMapper.loadUserByUsername(username);
-			final Authentication authentication = new UsernamePasswordAuthenticationToken(userDetails, null,
-					userDetails.getAuthorities());
+			try {
+				// Load user details with proper exception handling
+				final UserDetails userDetails = userDetailsService.loadUserByUsername(username);
 
-			// Generate new tokens
-			final String accessToken = tokenProvider.generateToken(authentication);
-			final String refreshToken = tokenProvider.generateRefreshToken(authentication);
+				// Ensure userDetails is not null before proceeding
+				if (userDetails == null) {
+					log.error("UserDetails is null for username: {}", username);
+					throw SpacedLearningException.resourceNotFound(messageSource, "resource.user.details", username);
+				}
 
-			final UserResponse userResponse = userMapper.toDto(user);
+				final Authentication authentication = new UsernamePasswordAuthenticationToken(userDetails, null,
+						userDetails.getAuthorities());
 
-			log.info("Token refreshed successfully for user: {}", username);
-			return AuthResponse.builder().token(accessToken).refreshToken(refreshToken).user(userResponse).build();
+				// Generate new tokens
+				final String accessToken = tokenProvider.generateToken(authentication);
+				final String refreshToken = tokenProvider.generateRefreshToken(authentication);
+
+				final UserResponse userResponse = userMapper.toDto(user);
+
+				log.info("Token refreshed successfully for user: {}", username);
+				return AuthResponse.builder().token(accessToken).refreshToken(refreshToken).user(userResponse).build();
+			} catch (final Exception e) {
+				log.error("Error creating authentication during token refresh for user: {}, Error: {}", username,
+						e.getMessage());
+				throw SpacedLearningException.forbidden(messageSource, "error.auth.failedAuthentication");
+			}
 
 		} catch (final JwtException e) {
 			log.error("Failed to refresh token: {}", e.getMessage());
