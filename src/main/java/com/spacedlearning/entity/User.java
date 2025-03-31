@@ -1,5 +1,6 @@
 package com.spacedlearning.entity;
 
+import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -60,6 +61,9 @@ public class User extends BaseEntity {
 	@ManyToMany(fetch = FetchType.LAZY)
 	@JoinTable(name = "user_roles", joinColumns = @JoinColumn(name = "user_id"), inverseJoinColumns = @JoinColumn(name = "role_id"))
 	private Set<Role> roles = new HashSet<>();
+
+	@Column(name = "last_active_date")
+	private LocalDateTime lastActiveDate;
 
 	/**
 	 * Add a role to this user

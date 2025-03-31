@@ -1,4 +1,3 @@
-// File: src/main/java/com/spacedlearning/repository/ModuleRepository.java
 package com.spacedlearning.repository;
 
 import java.util.List;
@@ -16,7 +15,7 @@ import org.springframework.stereotype.Repository;
 import com.spacedlearning.entity.Module;
 
 /**
- * Repository for Module entity
+ * Repository for Module entity with optimized queries
  */
 @Repository
 public interface ModuleRepository extends JpaRepository<Module, UUID> {
@@ -82,4 +81,86 @@ public interface ModuleRepository extends JpaRepository<Module, UUID> {
 	 */
 	@EntityGraph(attributePaths = { "progress" })
 	Optional<Module> findWithProgressById(UUID id);
+
+	/**
+	 * Count completed modules for user
+	 * 
+	 * @param userId User ID
+	 * @return Number of completed modules
+	 */
+	@Query(value = """
+			SELECT COUNT(DISTINCT m.id) FROM spaced_learning.modules m
+			JOIN spaced_learning.module_progress mp ON m.id = mp.module_id
+			WHERE mp.user_id = :userId
+			AND mp.percent_complete = 100
+			AND m.deleted_at IS NULL
+			AND mp.deleted_at IS NULL
+			""", nativeQuery = true)
+	int countCompletedModulesForUser(@Param("userId") UUID userId);
+
+	/**
+	 * Count in-progress modules for user
+	 * 
+	 * @param userId User ID
+	 * @return Number of in-progress modules
+	 */
+	@Query(value = """
+			SELECT COUNT(DISTINCT m.id) FROM spaced_learning.modules m
+			JOIN spaced_learning.module_progress mp ON m.id = mp.module_id
+			WHERE mp.user_id = :userId
+			AND mp.percent_complete > 0
+			AND mp.percent_complete < 100
+			AND m.deleted_at IS NULL
+			AND mp.deleted_at IS NULL
+			""", nativeQuery = true)
+	int countInProgressModulesForUser(@Param("userId") UUID userId);
+
+	/**
+	 * Count total modules for user
+	 * 
+	 * @param userId User ID
+	 * @return Total number of modules
+	 */
+	@Query(value = """
+			SELECT COUNT(DISTINCT m.id) FROM spaced_learning.modules m
+			JOIN spaced_learning.module_progress mp ON m.id = mp.module_id
+			WHERE mp.user_id = :userId
+			AND m.deleted_at IS NULL
+			AND mp.deleted_at IS NULL
+			""", nativeQuery = true)
+	int countTotalModulesForUser(@Param("userId") UUID userId);
+
+	/**
+	 * Get total word count for a user
+	 * 
+	 * @param userId User ID
+	 * @return Total word count
+	 */
+	@Query(value = """
+			SELECT COALESCE(SUM(m.word_count), 0) FROM spaced_learning.modules m
+			JOIN spaced_learning.module_progress mp ON m.id = mp.module_id
+			WHERE mp.user_id = :userId
+			AND m.deleted_at IS NULL
+			AND mp.deleted_at IS NULL
+			""", nativeQuery = true)
+	int getTotalWordCountForUser(@Param("userId") UUID userId);
+
+	/**
+	 * Get total learned word count for a user based on module progress
+	 * 
+	 * @param userId User ID
+	 * @return Total learned word count
+	 */
+	@Query(value = """
+			SELECT COALESCE(SUM(CASE
+			    WHEN mp.percent_complete = 100 THEN m.word_count
+			    ELSE CAST((m.word_count * mp.percent_complete / 100) AS INT)
+			END), 0)
+			FROM spaced_learning.modules m
+			JOIN spaced_learning.module_progress mp ON m.id = mp.module_id
+			WHERE mp.user_id = :userId
+			AND m.deleted_at IS NULL
+			AND mp.deleted_at IS NULL
+			""", nativeQuery = true)
+	int getLearnedWordCountForUser(@Param("userId") UUID userId);
 }

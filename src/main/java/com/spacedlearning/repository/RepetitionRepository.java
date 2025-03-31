@@ -1,4 +1,3 @@
-// File: src/main/java/com/spacedlearning/repository/RepetitionRepository.java
 package com.spacedlearning.repository;
 
 import java.time.LocalDate;
@@ -18,7 +17,7 @@ import com.spacedlearning.entity.enums.RepetitionOrder;
 import com.spacedlearning.entity.enums.RepetitionStatus;
 
 /**
- * Repository for Repetition entity
+ * Repository for Repetition entity with optimized query methods for statistics.
  */
 @Repository
 public interface RepetitionRepository extends JpaRepository<Repetition, UUID> {
@@ -40,15 +39,6 @@ public interface RepetitionRepository extends JpaRepository<Repetition, UUID> {
 	 * @return true if exists, false otherwise
 	 */
 	boolean existsByModuleProgressIdAndRepetitionOrder(UUID moduleProgressId, RepetitionOrder repetitionOrder);
-
-	/**
-	 * Find repetitions by module progress ID (paginated)
-	 *
-	 * @param moduleProgressId Module progress ID
-	 * @param pageable         Pagination information
-	 * @return Page of repetitions
-	 */
-	Page<Repetition> findByModuleProgressId(UUID moduleProgressId, Pageable pageable);
 
 	/**
 	 * Find repetition by module progress ID and order
@@ -98,4 +88,150 @@ public interface RepetitionRepository extends JpaRepository<Repetition, UUID> {
 	 * @return Total number of repetitions
 	 */
 	long countByModuleProgressId(UUID moduleProgressId);
+
+	/**
+	 * Count repetitions due today for a user
+	 *
+	 * @param userId User ID
+	 * @return Number of repetitions due today
+	 */
+	@Query(value = """
+			SELECT COUNT(r.id) FROM spaced_learning.repetitions r
+			JOIN spaced_learning.module_progress mp ON r.module_progress_id = mp.id
+			WHERE mp.user_id = :userId
+			AND r.review_date = CURRENT_DATE
+			AND r.status = 'NOT_STARTED'
+			AND r.deleted_at IS NULL
+			AND mp.deleted_at IS NULL
+			""", nativeQuery = true)
+	int countDueTodayForUser(@Param("userId") UUID userId);
+
+	/**
+	 * Count repetitions due this week for a user
+	 *
+	 * @param userId User ID
+	 * @return Number of repetitions due this week
+	 */
+	@Query(value = """
+			SELECT COUNT(r.id) FROM spaced_learning.repetitions r
+			JOIN spaced_learning.module_progress mp ON r.module_progress_id = mp.id
+			WHERE mp.user_id = :userId
+			AND r.review_date BETWEEN CURRENT_DATE AND (CURRENT_DATE + INTERVAL '6 days')
+			AND r.status = 'NOT_STARTED'
+			AND r.deleted_at IS NULL
+			AND mp.deleted_at IS NULL
+			""", nativeQuery = true)
+	int countDueThisWeekForUser(@Param("userId") UUID userId);
+
+	/**
+	 * Count repetitions due this month for a user
+	 *
+	 * @param userId User ID
+	 * @return Number of repetitions due this month
+	 */
+	@Query(value = """
+			SELECT COUNT(r.id) FROM spaced_learning.repetitions r
+			JOIN spaced_learning.module_progress mp ON r.module_progress_id = mp.id
+			WHERE mp.user_id = :userId
+			AND r.review_date BETWEEN CURRENT_DATE AND
+			    (DATE_TRUNC('month', CURRENT_DATE) + INTERVAL '1 month' - INTERVAL '1 day')
+			AND r.status = 'NOT_STARTED'
+			AND r.deleted_at IS NULL
+			AND mp.deleted_at IS NULL
+			""", nativeQuery = true)
+	int countDueThisMonthForUser(@Param("userId") UUID userId);
+
+	/**
+	 * Count total words in modules due today for a user
+	 *
+	 * @param userId User ID
+	 * @return Total word count for modules due today
+	 */
+	@Query(value = """
+			SELECT COALESCE(SUM(m.word_count), 0) FROM spaced_learning.repetitions r
+			JOIN spaced_learning.module_progress mp ON r.module_progress_id = mp.id
+			JOIN spaced_learning.modules m ON mp.module_id = m.id
+			WHERE mp.user_id = :userId
+			AND r.review_date = CURRENT_DATE
+			AND r.status = 'NOT_STARTED'
+			AND r.deleted_at IS NULL
+			AND mp.deleted_at IS NULL
+			AND m.deleted_at IS NULL
+			""", nativeQuery = true)
+	int countWordsDueTodayForUser(@Param("userId") UUID userId);
+
+	/**
+	 * Count total words in modules due this week for a user
+	 *
+	 * @param userId User ID
+	 * @return Total word count for modules due this week
+	 */
+	@Query(value = """
+			SELECT COALESCE(SUM(m.word_count), 0) FROM spaced_learning.repetitions r
+			JOIN spaced_learning.module_progress mp ON r.module_progress_id = mp.id
+			JOIN spaced_learning.modules m ON mp.module_id = m.id
+			WHERE mp.user_id = :userId
+			AND r.review_date BETWEEN CURRENT_DATE AND (CURRENT_DATE + INTERVAL '6 days')
+			AND r.status = 'NOT_STARTED'
+			AND r.deleted_at IS NULL
+			AND mp.deleted_at IS NULL
+			AND m.deleted_at IS NULL
+			""", nativeQuery = true)
+	int countWordsDueThisWeekForUser(@Param("userId") UUID userId);
+
+	/**
+	 * Count total words in modules due this month for a user
+	 *
+	 * @param userId User ID
+	 * @return Total word count for modules due this month
+	 */
+	@Query(value = """
+			SELECT COALESCE(SUM(m.word_count), 0) FROM spaced_learning.repetitions r
+			JOIN spaced_learning.module_progress mp ON r.module_progress_id = mp.id
+			JOIN spaced_learning.modules m ON mp.module_id = m.id
+			WHERE mp.user_id = :userId
+			AND r.review_date BETWEEN CURRENT_DATE AND
+			    (DATE_TRUNC('month', CURRENT_DATE) + INTERVAL '1 month' - INTERVAL '1 day')
+			AND r.status = 'NOT_STARTED'
+			AND r.deleted_at IS NULL
+			AND mp.deleted_at IS NULL
+			AND m.deleted_at IS NULL
+			""", nativeQuery = true)
+	int countWordsDueThisMonthForUser(@Param("userId") UUID userId);
+
+	/**
+	 * Count repetitions completed today for a user
+	 *
+	 * @param userId User ID
+	 * @return Number of repetitions completed today
+	 */
+	@Query(value = """
+			SELECT COUNT(r.id) FROM spaced_learning.repetitions r
+			JOIN spaced_learning.module_progress mp ON r.module_progress_id = mp.id
+			WHERE mp.user_id = :userId
+			AND CAST(r.updated_at AS DATE) = CURRENT_DATE
+			AND r.status = 'COMPLETED'
+			AND r.deleted_at IS NULL
+			AND mp.deleted_at IS NULL
+			""", nativeQuery = true)
+	int countCompletedTodayForUser(@Param("userId") UUID userId);
+
+	/**
+	 * Count total words completed today for a user
+	 *
+	 * @param userId User ID
+	 * @return Total word count for modules completed today
+	 */
+	@Query(value = """
+			SELECT COALESCE(SUM(m.word_count), 0) FROM spaced_learning.repetitions r
+			JOIN spaced_learning.module_progress mp ON r.module_progress_id = mp.id
+			JOIN spaced_learning.modules m ON mp.module_id = m.id
+			WHERE mp.user_id = :userId
+			AND CAST(r.updated_at AS DATE) = CURRENT_DATE
+			AND r.status = 'COMPLETED'
+			AND r.deleted_at IS NULL
+			AND mp.deleted_at IS NULL
+			AND m.deleted_at IS NULL
+			""", nativeQuery = true)
+	int countWordsCompletedTodayForUser(@Param("userId") UUID userId);
 }
