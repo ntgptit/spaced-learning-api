@@ -85,8 +85,7 @@ public class LearningStatsController {
         });
 
         // Get dashboard stats
-        final UserLearningStatsDTO stats =
-                statsService.getDashboardStats(user.getId(), refreshCache);
+        final UserLearningStatsDTO stats = statsService.getDashboardStats(user.getId());
 
         return ResponseEntity.ok(DataResponse.of(stats));
     }
@@ -122,7 +121,7 @@ public class LearningStatsController {
         }
 
         // Get dashboard stats
-        final UserLearningStatsDTO stats = statsService.getDashboardStats(userId, refreshCache);
+        final UserLearningStatsDTO stats = statsService.getDashboardStats(userId);
 
         return ResponseEntity.ok(DataResponse.of(stats));
     }
