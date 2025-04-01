@@ -8,14 +8,15 @@ import java.time.LocalDateTime;
 import java.time.temporal.TemporalAdjusters;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
-
 import org.springframework.cache.annotation.CacheConfig;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.context.MessageSource;
+import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
 import com.spacedlearning.dto.stats.LearningInsightDTO;
 import com.spacedlearning.dto.stats.UserLearningStatsDTO;
 import com.spacedlearning.entity.UserStatistics;
@@ -26,7 +27,6 @@ import com.spacedlearning.repository.RepetitionRepository;
 import com.spacedlearning.repository.UserRepository;
 import com.spacedlearning.repository.UserStatisticsRepository;
 import com.spacedlearning.service.LearningStatsService;
-
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -39,73 +39,160 @@ import lombok.extern.slf4j.Slf4j;
 @CacheConfig(cacheNames = "userLearningStats")
 public class LearningStatsServiceImpl implements LearningStatsService {
 
+	private static final String ERROR_USER_NOT_FOUND = "error.resource.notfound";
+	private static final String DEFAULT_USER_NOT_FOUND = "User not found";
+	private static final int SCALE_PRECISION = 2;
+	private static final BigDecimal ONE_HUNDRED = BigDecimal.valueOf(100);
+
 	private final UserRepository userRepository;
 	private final UserStatisticsRepository statsRepository;
 	private final RepetitionRepository repetitionRepository;
 	private final ModuleRepository moduleRepository;
+	private final MessageSource messageSource;
 
 	/**
 	 * Get dashboard statistics for a user
 	 *
-	 * @param userId       User ID
+	 * @param userId User ID
 	 * @param refreshCache Whether to refresh cache
 	 * @return User learning statistics
 	 */
 	@Override
 	@Transactional(readOnly = true)
 	@Cacheable(key = "#userId + '_dashboard'", condition = "#refreshCache == false")
-	public UserLearningStatsDTO getDashboardStats(UUID userId, boolean refreshCache) {
+	public UserLearningStatsDTO getDashboardStats(final UUID userId, final boolean refreshCache) {
 		log.debug("Calculating dashboard stats for user ID: {}", userId);
 
-		userRepository.findById(userId)
-				.orElseThrow(() -> SpacedLearningException.resourceNotFound("User", userId));
+		Objects.requireNonNull(userId, "User ID must not be null");
+
+		userRepository.findById(userId).orElseThrow(() -> {
+			final String message =
+					messageSource.getMessage(ERROR_USER_NOT_FOUND, new Object[] {"User", userId},
+							DEFAULT_USER_NOT_FOUND, LocaleContextHolder.getLocale());
+			return SpacedLearningException.resourceNotFound(message, userId.toString());
+		});
 
 		// Get pre-calculated statistics
 		final Optional<UserStatistics> statsOpt = statsRepository.findByUserId(userId);
 
 		// Create stats builder with defaults
-		final UserLearningStatsDTO.UserLearningStatsDTOBuilder builder = UserLearningStatsDTO.builder()
-				.lastUpdated(LocalDateTime.now());
+		final UserLearningStatsDTO.UserLearningStatsDTOBuilder builder =
+				createBasicStatsBuilder(userId, statsOpt);
 
-		// Set pre-calculated stats if available
+		// These statistics are always calculated fresh as they change frequently
+		final UserLearningStatsDTO stats = calculateDynamicStats(userId, statsOpt, builder);
+
+		return stats;
+	}
+
+	/**
+	 * Create a basic stats builder with pre-calculated or default values
+	 *
+	 * @param userId User ID
+	 * @param statsOpt Optional UserStatistics
+	 * @return UserLearningStatsDTO builder with basic stats
+	 */
+	private UserLearningStatsDTO.UserLearningStatsDTOBuilder createBasicStatsBuilder(
+			final UUID userId, final Optional<UserStatistics> statsOpt) {
+
+		final UserLearningStatsDTO.UserLearningStatsDTOBuilder builder =
+				UserLearningStatsDTO.builder().lastUpdated(LocalDateTime.now());
+
 		if (statsOpt.isPresent()) {
-			final UserStatistics stats = statsOpt.get();
-			builder.streakDays(stats.getStreakDays()).streakWeeks(stats.getStreakWeeks())
-					.longestStreakDays(stats.getLongestStreakDays())
-					.totalCompletedModules(stats.getTotalCompletedModules())
-					.totalInProgressModules(stats.getTotalInProgressModules()).totalWords(stats.getTotalWords())
-					.learnedWords(stats.getLearnedWords()).vocabularyCompletionRate(stats.getVocabularyCompletionRate())
-					.weeklyNewWordsRate(stats.getWeeklyNewWordsRate()).lastUpdated(stats.getLastStatisticsUpdate());
+			applyExistingStatistics(builder, statsOpt.get());
 		} else {
-			// Use database queries for basic stats if pre-calculated aren't available
-			final int totalWords = moduleRepository.getTotalWordCountForUser(userId);
-			final int learnedWords = moduleRepository.getLearnedWordCountForUser(userId);
-
-			// Calculate vocabulary completion rate safely
-			BigDecimal vocabularyCompletionRate = BigDecimal.ZERO;
-			if (totalWords > 0) {
-				final BigDecimal learnedWordsBD = BigDecimal.valueOf(learnedWords);
-				final BigDecimal totalWordsBD = BigDecimal.valueOf(totalWords);
-				vocabularyCompletionRate = learnedWordsBD.divide(totalWordsBD, 2, RoundingMode.HALF_UP)
-						.multiply(BigDecimal.valueOf(100));
-			}
-
-			builder.streakDays(0).streakWeeks(0).longestStreakDays(0).totalWords(totalWords).learnedWords(learnedWords)
-					.vocabularyCompletionRate(vocabularyCompletionRate).weeklyNewWordsRate(BigDecimal.ZERO)
-					.totalCompletedModules(0).totalInProgressModules(0);
+			applyDefaultStatistics(builder, userId);
 		}
 
-		// Always calculate these statistics as they change frequently
+		return builder;
+	}
+
+	/**
+	 * Apply existing statistics to the builder
+	 *
+	 * @param builder Builder to update
+	 * @param stats Statistics to apply
+	 */
+	private void applyExistingStatistics(
+			final UserLearningStatsDTO.UserLearningStatsDTOBuilder builder,
+			final UserStatistics stats) {
+
+		builder.streakDays(stats.getStreakDays()).streakWeeks(stats.getStreakWeeks())
+				.longestStreakDays(stats.getLongestStreakDays())
+				.totalCompletedModules(stats.getTotalCompletedModules())
+				.totalInProgressModules(stats.getTotalInProgressModules())
+				.totalWords(stats.getTotalWords()).learnedWords(stats.getLearnedWords())
+				.vocabularyCompletionRate(stats.getVocabularyCompletionRate())
+				.weeklyNewWordsRate(stats.getWeeklyNewWordsRate())
+				.lastUpdated(stats.getLastStatisticsUpdate());
+	}
+
+	/**
+	 * Apply default statistics calculated from database
+	 *
+	 * @param builder Builder to update
+	 * @param userId User ID to calculate stats for
+	 */
+	private void applyDefaultStatistics(
+			final UserLearningStatsDTO.UserLearningStatsDTOBuilder builder, final UUID userId) {
+		// Use database queries for basic stats if pre-calculated aren't available
+		final int totalWords = moduleRepository.getTotalWordCountForUser(userId);
+		final int learnedWords = moduleRepository.getLearnedWordCountForUser(userId);
+
+		// Calculate vocabulary completion rate safely
+		final BigDecimal vocabularyCompletionRate =
+				calculateVocabularyCompletionRate(totalWords, learnedWords);
+
+		builder.streakDays(0).streakWeeks(0).longestStreakDays(0).totalWords(totalWords)
+				.learnedWords(learnedWords).vocabularyCompletionRate(vocabularyCompletionRate)
+				.weeklyNewWordsRate(BigDecimal.ZERO).totalCompletedModules(0)
+				.totalInProgressModules(0);
+	}
+
+	/**
+	 * Calculate vocabulary completion rate
+	 *
+	 * @param totalWords Total word count
+	 * @param learnedWords Learned word count
+	 * @return Completion rate percentage
+	 */
+	private BigDecimal calculateVocabularyCompletionRate(final int totalWords,
+			final int learnedWords) {
+		if (totalWords <= 0) {
+			return BigDecimal.ZERO;
+		}
+
+		final BigDecimal learnedWordsBD = BigDecimal.valueOf(learnedWords);
+		final BigDecimal totalWordsBD = BigDecimal.valueOf(totalWords);
+
+		return learnedWordsBD.divide(totalWordsBD, SCALE_PRECISION, RoundingMode.HALF_UP)
+				.multiply(ONE_HUNDRED);
+	}
+
+	/**
+	 * Calculate dynamic statistics that change frequently
+	 *
+	 * @param userId User ID
+	 * @param statsOpt Optional UserStatistics
+	 * @param builder Existing builder with basic stats
+	 * @return Completed UserLearningStatsDTO
+	 */
+	private UserLearningStatsDTO calculateDynamicStats(final UUID userId,
+			final Optional<UserStatistics> statsOpt,
+			final UserLearningStatsDTO.UserLearningStatsDTOBuilder builder) {
 
 		// Module counts
 		final int totalModules = moduleRepository.countTotalModulesForUser(userId);
-		final int completedModules = statsOpt.isPresent() ? statsOpt.get().getTotalCompletedModules()
-				: moduleRepository.countCompletedModulesForUser(userId);
-		final int inProgressModules = statsOpt.isPresent() ? statsOpt.get().getTotalInProgressModules()
-				: moduleRepository.countInProgressModulesForUser(userId);
+		final int completedModules =
+				statsOpt.isPresent() ? statsOpt.get().getTotalCompletedModules()
+						: moduleRepository.countCompletedModulesForUser(userId);
+		final int inProgressModules =
+				statsOpt.isPresent() ? statsOpt.get().getTotalInProgressModules()
+						: moduleRepository.countInProgressModulesForUser(userId);
 
 		// Calculate module completion rate safely
-		final double moduleCompletionRate = totalModules > 0 ? (double) completedModules / totalModules * 100 : 0;
+		final double moduleCompletionRate =
+				calculateModuleCompletionRate(totalModules, completedModules);
 
 		// Due counts
 		final int dueToday = repetitionRepository.countDueTodayForUser(userId);
@@ -123,7 +210,8 @@ public class LearningStatsServiceImpl implements LearningStatsService {
 		final int completedThisMonth = calculateCompletedThisMonth(userId);
 
 		// Word counts for completed items
-		final int wordsCompletedToday = repetitionRepository.countWordsCompletedTodayForUser(userId);
+		final int wordsCompletedToday =
+				repetitionRepository.countWordsCompletedTodayForUser(userId);
 		final int wordsCompletedThisWeek = calculateWordsCompletedThisWeek(userId);
 		final int wordsCompletedThisMonth = calculateWordsCompletedThisMonth(userId);
 
@@ -139,36 +227,51 @@ public class LearningStatsServiceImpl implements LearningStatsService {
 
 		// Get streak days and weekly new words rate for insights
 		final int streakDays = statsOpt.isPresent() ? statsOpt.get().getStreakDays() : 0;
-		final BigDecimal weeklyNewWordsRate = statsOpt.isPresent() ? statsOpt.get().getWeeklyNewWordsRate()
-				: BigDecimal.ZERO;
+		final BigDecimal weeklyNewWordsRate =
+				statsOpt.isPresent() ? statsOpt.get().getWeeklyNewWordsRate() : BigDecimal.ZERO;
 
 		// Generate insights based on statistics
-		final String[] learningInsights = generateLearningInsights(weeklyNewWordsRate.doubleValue(), streakDays,
-				pendingWords,
-				dueToday);
+		final String[] learningInsights = generateLearningInsights(weeklyNewWordsRate.doubleValue(),
+				streakDays, pendingWords, dueToday);
 
 		// Build the complete DTO
 		return builder.totalModules(totalModules).completedModules(completedModules)
-				.inProgressModules(inProgressModules).moduleCompletionRate(moduleCompletionRate).dueToday(dueToday)
-				.dueThisWeek(dueThisWeek).dueThisMonth(dueThisMonth).wordsDueToday(wordsDueToday)
-				.wordsDueThisWeek(wordsDueThisWeek).wordsDueThisMonth(wordsDueThisMonth).completedToday(completedToday)
+				.inProgressModules(inProgressModules).moduleCompletionRate(moduleCompletionRate)
+				.dueToday(dueToday).dueThisWeek(dueThisWeek).dueThisMonth(dueThisMonth)
+				.wordsDueToday(wordsDueToday).wordsDueThisWeek(wordsDueThisWeek)
+				.wordsDueThisMonth(wordsDueThisMonth).completedToday(completedToday)
 				.completedThisWeek(completedThisWeek).completedThisMonth(completedThisMonth)
-				.wordsCompletedToday(wordsCompletedToday).wordsCompletedThisWeek(wordsCompletedThisWeek)
+				.wordsCompletedToday(wordsCompletedToday)
+				.wordsCompletedThisWeek(wordsCompletedThisWeek)
 				.wordsCompletedThisMonth(wordsCompletedThisMonth).pendingWords(pendingWords)
 				.learningInsights(learningInsights).build();
+	}
+
+	/**
+	 * Calculate module completion rate
+	 *
+	 * @param totalModules Total module count
+	 * @param completedModules Completed module count
+	 * @return Completion rate percentage
+	 */
+	private double calculateModuleCompletionRate(final int totalModules,
+			final int completedModules) {
+		return totalModules > 0 ? (double) completedModules / totalModules * 100 : 0;
 	}
 
 	/**
 	 * Generate learning insights for the dashboard
 	 *
 	 * @param vocabularyRate Vocabulary learning rate
-	 * @param streakDays     Streak days
-	 * @param pendingWords   Pending words
-	 * @param dueToday       Due today
+	 * @param streakDays Streak days
+	 * @param pendingWords Pending words
+	 * @param dueToday Due today
 	 * @return Array of insight messages
 	 */
-	private String[] generateLearningInsights(double vocabularyRate, int streakDays, int pendingWords, int dueToday) {
-		final List<String> insights = new ArrayList<>();
+	private String[] generateLearningInsights(final double vocabularyRate, final int streakDays,
+			final int pendingWords, final int dueToday) {
+
+		final List<String> insights = new ArrayList<>(4); // Initialize with expected capacity
 
 		// Vocabulary rate insight
 		insights.add(String.format("You learn %.1f%% new vocabulary each week", vocabularyRate));
@@ -189,7 +292,8 @@ public class LearningStatsServiceImpl implements LearningStatsService {
 
 		// Due today
 		if (dueToday > 0) {
-			insights.add(String.format("Complete today's %d sessions to maintain your streak", dueToday));
+			insights.add(String.format("Complete today's %d sessions to maintain your streak",
+					dueToday));
 		} else {
 			insights.add("No sessions due today - take a well-deserved break!");
 		}
@@ -203,11 +307,11 @@ public class LearningStatsServiceImpl implements LearningStatsService {
 	 * @param userId User ID
 	 * @return Number of completed repetitions this week
 	 */
-	private int calculateCompletedThisWeek(UUID userId) {
+	private int calculateCompletedThisWeek(final UUID userId) {
 		// Implementation would query the repository with date range for current week
 		// This is a placeholder implementation
 		final LocalDate today = LocalDate.now();
-		today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
+		final LocalDate weekStart = today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
 
 		// Actual implementation would query the database
 		return 0; // Placeholder
@@ -219,11 +323,11 @@ public class LearningStatsServiceImpl implements LearningStatsService {
 	 * @param userId User ID
 	 * @return Number of completed repetitions this month
 	 */
-	private int calculateCompletedThisMonth(UUID userId) {
+	private int calculateCompletedThisMonth(final UUID userId) {
 		// Implementation would query the repository with date range for current month
 		// This is a placeholder implementation
 		final LocalDate today = LocalDate.now();
-		today.withDayOfMonth(1);
+		final LocalDate monthStart = today.withDayOfMonth(1);
 
 		// Actual implementation would query the database
 		return 0; // Placeholder
@@ -235,7 +339,7 @@ public class LearningStatsServiceImpl implements LearningStatsService {
 	 * @param userId User ID
 	 * @return Number of words completed this week
 	 */
-	private int calculateWordsCompletedThisWeek(UUID userId) {
+	private int calculateWordsCompletedThisWeek(final UUID userId) {
 		// Implementation would query the repository with date range for current week
 		// This is a placeholder implementation
 		return 0; // Placeholder
@@ -247,7 +351,7 @@ public class LearningStatsServiceImpl implements LearningStatsService {
 	 * @param userId User ID
 	 * @return Number of words completed this month
 	 */
-	private int calculateWordsCompletedThisMonth(UUID userId) {
+	private int calculateWordsCompletedThisMonth(final UUID userId) {
 		// Implementation would query the repository with date range for current month
 		// This is a placeholder implementation
 		return 0; // Placeholder
@@ -261,35 +365,79 @@ public class LearningStatsServiceImpl implements LearningStatsService {
 	 */
 	@Override
 	@Transactional(readOnly = true)
-	public List<LearningInsightDTO> getLearningInsights(UUID userId) {
+	public List<LearningInsightDTO> getLearningInsights(final UUID userId) {
 		log.debug("Generating learning insights for user ID: {}", userId);
+
+		Objects.requireNonNull(userId, "User ID must not be null");
 
 		// Get user stats
 		final UserLearningStatsDTO stats = getDashboardStats(userId, false);
 
-		final List<LearningInsightDTO> insights = new ArrayList<>();
+		final List<LearningInsightDTO> insights = new ArrayList<>(4); // Initialize with expected
+																		// capacity
 
 		// Vocabulary rate insight
-		insights.add(LearningInsightDTO.builder().type(InsightType.VOCABULARY_RATE)
-				.message(String.format("You learn %.1f%% new vocabulary each week", stats.getWeeklyNewWordsRate()))
-				.icon("trending_up").color("blue").dataPoint(stats.getWeeklyNewWordsRate().doubleValue()).priority(1)
-				.build());
+		insights.add(createVocabularyRateInsight(stats.getWeeklyNewWordsRate().doubleValue()));
 
 		// Streak insight
-		insights.add(LearningInsightDTO.builder().type(InsightType.STREAK)
-				.message(String.format("Your current streak is %d days - keep going!", stats.getStreakDays()))
-				.icon("local_fire_department").color("orange").dataPoint(stats.getStreakDays()).priority(2).build());
+		insights.add(createStreakInsight(stats.getStreakDays()));
 
 		// Pending words
-		insights.add(LearningInsightDTO.builder().type(InsightType.PENDING_WORDS)
-				.message(String.format("You have %d words pending to learn", stats.getPendingWords())).icon("menu_book")
-				.color("teal").dataPoint(stats.getPendingWords()).priority(3).build());
+		insights.add(createPendingWordsInsight(stats.getPendingWords()));
 
 		// Due today
-		insights.add(LearningInsightDTO.builder().type(InsightType.DUE_TODAY)
-				.message(String.format("Complete today's %d sessions to maintain your streak", stats.getDueToday()))
-				.icon("today").color("red").dataPoint(stats.getDueToday()).priority(4).build());
+		insights.add(createDueTodayInsight(stats.getDueToday()));
 
 		return insights;
+	}
+
+	/**
+	 * Create vocabulary rate insight
+	 *
+	 * @param weeklyRate Weekly vocabulary rate
+	 * @return LearningInsightDTO for vocabulary rate
+	 */
+	private LearningInsightDTO createVocabularyRateInsight(final double weeklyRate) {
+		return LearningInsightDTO.builder().type(InsightType.VOCABULARY_RATE)
+				.message(String.format("You learn %.1f%% new vocabulary each week", weeklyRate))
+				.icon("trending_up").color("blue").dataPoint(weeklyRate).priority(1).build();
+	}
+
+	/**
+	 * Create streak insight
+	 *
+	 * @param streakDays Number of streak days
+	 * @return LearningInsightDTO for streak
+	 */
+	private LearningInsightDTO createStreakInsight(final int streakDays) {
+		return LearningInsightDTO.builder().type(InsightType.STREAK)
+				.message(String.format("Your current streak is %d days - keep going!", streakDays))
+				.icon("local_fire_department").color("orange").dataPoint(streakDays).priority(2)
+				.build();
+	}
+
+	/**
+	 * Create pending words insight
+	 *
+	 * @param pendingWords Number of pending words
+	 * @return LearningInsightDTO for pending words
+	 */
+	private LearningInsightDTO createPendingWordsInsight(final int pendingWords) {
+		return LearningInsightDTO.builder().type(InsightType.PENDING_WORDS)
+				.message(String.format("You have %d words pending to learn", pendingWords))
+				.icon("menu_book").color("teal").dataPoint(pendingWords).priority(3).build();
+	}
+
+	/**
+	 * Create due today insight
+	 *
+	 * @param dueToday Number of sessions due today
+	 * @return LearningInsightDTO for due today
+	 */
+	private LearningInsightDTO createDueTodayInsight(final int dueToday) {
+		return LearningInsightDTO.builder().type(InsightType.DUE_TODAY)
+				.message(String.format("Complete today's %d sessions to maintain your streak",
+						dueToday))
+				.icon("today").color("red").dataPoint(dueToday).priority(4).build();
 	}
 }
