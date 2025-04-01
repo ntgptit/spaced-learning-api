@@ -52,6 +52,9 @@ public class Book extends BaseEntity {
 	@Column(name = "category", length = 50)
 	private String category;
 
+	@Column(name = "book_no")
+	private Integer bookNo = 0;
+
 	@OneToMany(mappedBy = "book", fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
 	private List<Module> modules = new ArrayList<>();
 

@@ -4,20 +4,25 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
+
 import org.springframework.context.MessageSource;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
 import com.spacedlearning.dto.stats.UserLearningStatsDTO;
 import com.spacedlearning.entity.UserStatistics;
 import com.spacedlearning.exception.SpacedLearningException;
 import com.spacedlearning.repository.ModuleRepository;
-import com.spacedlearning.repository.RepetitionRepository;
 import com.spacedlearning.repository.UserRepository;
 import com.spacedlearning.repository.UserStatisticsRepository;
 import com.spacedlearning.service.DashboardStatsService;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -37,11 +42,11 @@ public class DashboardStatsServiceImpl implements DashboardStatsService {
     // Dependencies
     private final UserRepository userRepository;
     private final UserStatisticsRepository statsRepository;
-    private final RepetitionRepository repetitionRepository;
     private final ModuleRepository moduleRepository;
     private final MessageSource messageSource;
 
-    @Transactional(readOnly = true)
+    @Override
+	@Transactional(readOnly = true)
     public UserLearningStatsDTO getDashboardStats(final UUID userId) {
         log.debug("Calculating dashboard stats for user ID: {}", userId);
         Objects.requireNonNull(userId, "User ID must not be null");
@@ -49,10 +54,10 @@ public class DashboardStatsServiceImpl implements DashboardStatsService {
         userRepository.findById(userId).orElseThrow(() -> SpacedLearningException
                 .resourceNotFound(messageSource, RESOURCE_USER, userId));
 
-        Optional<UserStatistics> statsOpt = statsRepository.findByUserId(userId);
-        UserLearningStatsDTO.UserLearningStatsDTOBuilder builder =
+        final Optional<UserStatistics> statsOpt = statsRepository.findByUserId(userId);
+        final UserLearningStatsDTO.UserLearningStatsDTOBuilder builder =
                 createBasicStatsBuilder(userId, statsOpt);
-        return calculateDynamicStats(userId, statsOpt, builder);
+        return calculateDynamicStats(userId, builder);
     }
 
     private UserLearningStatsDTO.UserLearningStatsDTOBuilder createBasicStatsBuilder(
@@ -66,9 +71,9 @@ public class DashboardStatsServiceImpl implements DashboardStatsService {
                 .vocabularyCompletionRate(stats.getVocabularyCompletionRate())
                 .weeklyNewWordsRate(stats.getWeeklyNewWordsRate())
                 .lastUpdated(stats.getLastStatisticsUpdate())).orElseGet(() -> {
-                    int totalWords = moduleRepository.getTotalWordCountForUser(userId);
-                    int learnedWords = moduleRepository.getLearnedWordCountForUser(userId);
-                    BigDecimal vocabularyCompletionRate =
+                    final int totalWords = moduleRepository.getTotalWordCountForUser(userId);
+                    final int learnedWords = moduleRepository.getLearnedWordCountForUser(userId);
+                    final BigDecimal vocabularyCompletionRate =
                             calculateVocabularyCompletionRate(totalWords, learnedWords);
 
                     return UserLearningStatsDTO.builder().lastUpdated(LocalDateTime.now())
@@ -81,46 +86,54 @@ public class DashboardStatsServiceImpl implements DashboardStatsService {
     }
 
     private UserLearningStatsDTO calculateDynamicStats(final UUID userId,
-            final Optional<UserStatistics> statsOpt,
             final UserLearningStatsDTO.UserLearningStatsDTOBuilder builder) {
-        int totalModules = moduleRepository.countTotalModulesForUser(userId);
-        int completedModules = statsOpt.map(UserStatistics::getTotalCompletedModules)
-                .orElseGet(() -> moduleRepository.countCompletedModulesForUser(userId));
-        int inProgressModules = statsOpt.map(UserStatistics::getTotalInProgressModules)
-                .orElseGet(() -> moduleRepository.countInProgressModulesForUser(userId));
-        double moduleCompletionRate = calculateModuleCompletionRate(totalModules, completedModules);
 
-        int dueToday = repetitionRepository.countDueTodayForUser(userId);
-        int dueThisWeek = repetitionRepository.countDueThisWeekForUser(userId);
-        int dueThisMonth = repetitionRepository.countDueThisMonthForUser(userId);
+		final int totalModules = moduleRepository.countTotalModules();
+		final List<Object[]> moduleCycleStudiedStatsList = moduleRepository.getModuleCycleStudiedStats();
+		final Map<String, Integer> cycleCounts = new HashMap<>();
+		for (final Object[] row : moduleCycleStudiedStatsList) {
+			final String cycleName = (String) row[0];
+			final Integer count = ((Number) row[1]).intValue();
+			cycleCounts.put(cycleName, count);
+		}
 
-        int wordsDueToday = repetitionRepository.countWordsDueTodayForUser(userId);
-        int wordsDueThisWeek = repetitionRepository.countWordsDueThisWeekForUser(userId);
-        int wordsDueThisMonth = repetitionRepository.countWordsDueThisMonthForUser(userId);
+		// Tính tổng số module đã học
+		final int totalStudied = cycleCounts.values().stream().mapToInt(Integer::intValue).sum();
 
-        int completedToday = repetitionRepository.countCompletedTodayForUser(userId);
-        int completedThisWeek = calculateCompletedThisWeek(userId);
-        int completedThisMonth = calculateCompletedThisMonth(userId);
+		// Tính số module chưa học và thêm vào map
+		final int notStudied = totalModules - totalStudied;
+		cycleCounts.put("NOT_STUDIED", notStudied);
 
-        int wordsCompletedToday = repetitionRepository.countWordsCompletedTodayForUser(userId);
-        int wordsCompletedThisWeek = calculateWordsCompletedThisWeek(userId);
-        int wordsCompletedThisMonth = calculateWordsCompletedThisMonth(userId);
+		final int dueToday = moduleRepository.countDueTodayForUser(userId);
+		final int dueThisWeek = moduleRepository.countDueThisWeekForUser(userId);
+		final int dueThisMonth = moduleRepository.countDueThisMonthForUser(userId);
 
-        int totalWords = statsOpt.map(UserStatistics::getTotalWords)
-                .orElseGet(() -> moduleRepository.getTotalWordCountForUser(userId));
-        int learnedWords = statsOpt.map(UserStatistics::getLearnedWords)
-                .orElseGet(() -> moduleRepository.getLearnedWordCountForUser(userId));
-        int pendingWords = Math.max(0, totalWords - learnedWords);
+		final int wordsDueToday = moduleRepository.countWordsDueTodayForUser(userId);
+		final int wordsDueThisWeek = moduleRepository.countWordsDueThisWeekForUser(userId);
+		final int wordsDueThisMonth = moduleRepository.countWordsDueThisMonthForUser(userId);
 
-        return builder.totalModules(totalModules).completedModules(completedModules)
-                .inProgressModules(inProgressModules).moduleCompletionRate(moduleCompletionRate)
-                .dueToday(dueToday).dueThisWeek(dueThisWeek).dueThisMonth(dueThisMonth)
-                .wordsDueToday(wordsDueToday).wordsDueThisWeek(wordsDueThisWeek)
-                .wordsDueThisMonth(wordsDueThisMonth).completedToday(completedToday)
-                .completedThisWeek(completedThisWeek).completedThisMonth(completedThisMonth)
+		final int completedToday = moduleRepository.countCompletedTodayForUser(userId);
+        final int completedThisWeek = calculateCompletedThisWeek(userId);
+        final int completedThisMonth = calculateCompletedThisMonth(userId);
+
+		final int wordsCompletedToday = moduleRepository.countWordsCompletedTodayForUser(userId);
+        final int wordsCompletedThisWeek = calculateWordsCompletedThisWeek(userId);
+        final int wordsCompletedThisMonth = calculateWordsCompletedThisMonth(userId);
+
+		final int totalWords = moduleRepository.countTotalVocabularyWords();
+        final int learnedWords = moduleRepository.countLearnedVocabularyWords();
+        final int pendingWords = Math.max(0, totalWords - learnedWords);
+
+		return builder.totalModules(totalModules).cycleStats(cycleCounts).dueToday(dueToday).dueThisWeek(dueThisWeek)
+				.dueThisMonth(dueThisMonth).wordsDueToday(wordsDueToday).wordsDueThisWeek(wordsDueThisWeek)
+				.wordsDueThisMonth(wordsDueThisMonth).completedToday(completedToday)
+				.completedThisWeek(completedThisWeek).completedThisMonth(completedThisMonth)
                 .wordsCompletedToday(wordsCompletedToday)
                 .wordsCompletedThisWeek(wordsCompletedThisWeek)
-                .wordsCompletedThisMonth(wordsCompletedThisMonth).pendingWords(pendingWords)
+				.wordsCompletedThisMonth(wordsCompletedThisMonth).totalWords(totalWords).learnedWords(learnedWords)
+				.pendingWords(pendingWords)
+				.vocabularyCompletionRate(calculateVocabularyCompletionRate(totalWords, learnedWords))
+				.weeklyNewWordsRate(ONE_HUNDRED)
                 .build();
     }
 
@@ -129,42 +142,37 @@ public class DashboardStatsServiceImpl implements DashboardStatsService {
         if (totalWords <= 0) {
             return BigDecimal.ZERO;
         }
-        BigDecimal learnedWordsBD = BigDecimal.valueOf(learnedWords);
-        BigDecimal totalWordsBD = BigDecimal.valueOf(totalWords);
+        final BigDecimal learnedWordsBD = BigDecimal.valueOf(learnedWords);
+        final BigDecimal totalWordsBD = BigDecimal.valueOf(totalWords);
         return learnedWordsBD.divide(totalWordsBD, SCALE_PRECISION, RoundingMode.HALF_UP)
                 .multiply(ONE_HUNDRED);
     }
 
-    private double calculateModuleCompletionRate(final int totalModules,
-            final int completedModules) {
-        return totalModules > 0 ? (double) completedModules / totalModules * 100 : 0;
-    }
-
     private int calculateCompletedThisWeek(final UUID userId) {
-        LocalDate today = LocalDate.now();
-        int completedToday = repetitionRepository.countCompletedTodayForUser(userId);
-        int daysPastInWeek = today.getDayOfWeek().getValue();
+        final LocalDate today = LocalDate.now();
+		final int completedToday = moduleRepository.countCompletedTodayForUser(userId);
+        final int daysPastInWeek = today.getDayOfWeek().getValue();
         return Math.min(completedToday * daysPastInWeek, completedToday * 5);
     }
 
     private int calculateCompletedThisMonth(final UUID userId) {
-        LocalDate today = LocalDate.now();
-        int completedToday = repetitionRepository.countCompletedTodayForUser(userId);
-        int dayOfMonth = today.getDayOfMonth();
+        final LocalDate today = LocalDate.now();
+		final int completedToday = moduleRepository.countCompletedTodayForUser(userId);
+        final int dayOfMonth = today.getDayOfMonth();
         return Math.min(completedToday * dayOfMonth, completedToday * 20);
     }
 
     private int calculateWordsCompletedThisWeek(final UUID userId) {
-        LocalDate today = LocalDate.now();
-        int wordsCompletedToday = repetitionRepository.countWordsCompletedTodayForUser(userId);
-        int daysPastInWeek = today.getDayOfWeek().getValue();
+        final LocalDate today = LocalDate.now();
+		final int wordsCompletedToday = moduleRepository.countWordsCompletedTodayForUser(userId);
+        final int daysPastInWeek = today.getDayOfWeek().getValue();
         return Math.min(wordsCompletedToday * daysPastInWeek, wordsCompletedToday * 5);
     }
 
     private int calculateWordsCompletedThisMonth(final UUID userId) {
-        LocalDate today = LocalDate.now();
-        int wordsCompletedToday = repetitionRepository.countWordsCompletedTodayForUser(userId);
-        int dayOfMonth = today.getDayOfMonth();
+        final LocalDate today = LocalDate.now();
+		final int wordsCompletedToday = moduleRepository.countWordsCompletedTodayForUser(userId);
+        final int dayOfMonth = today.getDayOfMonth();
         return Math.min(wordsCompletedToday * dayOfMonth, wordsCompletedToday * 20);
     }
 }

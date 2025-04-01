@@ -2,6 +2,7 @@ package com.spacedlearning.dto.stats;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.Map;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -18,9 +19,7 @@ import lombok.NoArgsConstructor;
 public class UserLearningStatsDTO {
 	// Module statistics
 	private int totalModules;
-	private int completedModules;
-	private int inProgressModules;
-	private double moduleCompletionRate;
+	private Map<String, Integer> cycleStats;
 
 	// Due sessions
 	private int dueToday;
