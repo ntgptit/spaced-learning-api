@@ -34,77 +34,77 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class UserServiceImpl implements UserService {
 
-	private final UserRepository userRepository;
-	private final UserMapper userMapper;
-	private final CustomUserDetailsService userDetailsService;
+    private final UserRepository userRepository;
+    private final UserMapper userMapper;
+    private final CustomUserDetailsService userDetailsService;
 
-	@Override
-	@Transactional
-	public void delete(UUID id) {
-		log.debug("Deleting user with ID: {}", id);
+    @Override
+    @Transactional
+    public void delete(UUID id) {
+        log.debug("Deleting user with ID: {}", id);
 
-		final User user = userRepository.findById(id)
-				.orElseThrow(() -> SpacedLearningException.resourceNotFound("User", id));
+        final User user = userRepository.findById(id)
+                .orElseThrow(() -> SpacedLearningException.resourceNotFound("User", id));
 
-		user.softDelete(); // Use soft delete
-		userRepository.save(user);
+        user.softDelete(); // Use soft delete
+        userRepository.save(user);
 
-		log.info("User soft deleted successfully with ID: {}", id);
-	}
+        log.info("User soft deleted successfully with ID: {}", id);
+    }
 
-	@Override
-	@Transactional(readOnly = true)
-	public boolean existsByEmail(String email) {
-		return userRepository.existsByEmail(email);
-	}
+    @Override
+    @Transactional(readOnly = true)
+    public boolean existsByEmail(String email) {
+        return userRepository.existsByEmail(email);
+    }
 
-	@Override
-	@Transactional(readOnly = true)
-	public Page<UserDetailedResponse> findAll(Pageable pageable) {
-		log.debug("Finding all users with pagination: {}", pageable);
-		return userRepository.findAll(pageable).map(userMapper::toDetailedDto);
-	}
+    @Override
+    @Transactional(readOnly = true)
+    public Page<UserDetailedResponse> findAll(Pageable pageable) {
+        log.debug("Finding all users with pagination: {}", pageable);
+        return userRepository.findAll(pageable).map(userMapper::toDetailedDto);
+    }
 
-	@Override
-	@Transactional(readOnly = true)
-	public UserResponse findByEmail(String email) {
-		log.debug("Finding user by email: {}", email);
-		final User user = userRepository.findByEmail(email)
-				.orElseThrow(() -> SpacedLearningException.resourceNotFound("User with email " + email, null));
-		return userMapper.toDto(user);
-	}
+    @Override
+    @Transactional(readOnly = true)
+    public UserResponse findByUsernameOrEmail(String email) {
+        log.debug("Finding user by email: {}", email);
+        final User user = userRepository.findByUsernameOrEmail(email)
+                .orElseThrow(() -> SpacedLearningException.resourceNotFound("User with email " + email, null));
+        return userMapper.toDto(user);
+    }
 
-	@Override
-	@Transactional(readOnly = true)
-	public UserDetailedResponse findById(UUID id) {
-		log.debug("Finding user by ID: {}", id);
-		final User user = userRepository.findById(id)
-				.orElseThrow(() -> SpacedLearningException.resourceNotFound("User", id));
-		return userMapper.toDetailedDto(user);
-	}
+    @Override
+    @Transactional(readOnly = true)
+    public UserDetailedResponse findById(UUID id) {
+        log.debug("Finding user by ID: {}", id);
+        final User user = userRepository.findById(id)
+                .orElseThrow(() -> SpacedLearningException.resourceNotFound("User", id));
+        return userMapper.toDetailedDto(user);
+    }
 
-	@Override
-	@Transactional(readOnly = true)
-	public UserResponse getCurrentUser() {
-		final Authentication authentication = Optional
-				.ofNullable(SecurityContextHolder.getContext().getAuthentication())
-				.filter(Authentication::isAuthenticated)
-				.orElseThrow(() -> SpacedLearningException.forbidden("User not authenticated"));
+    @Override
+    @Transactional(readOnly = true)
+    public UserResponse getCurrentUser() {
+        final Authentication authentication = Optional
+                .ofNullable(SecurityContextHolder.getContext().getAuthentication())
+                .filter(Authentication::isAuthenticated)
+                .orElseThrow(() -> SpacedLearningException.forbidden("User not authenticated"));
 
-		final String email = authentication.getName();
-		log.debug("Getting current user with email: {}", email);
+        final String email = authentication.getName();
+        log.debug("Getting current user with email: {}", email);
 
-		return findByEmail(email);
-	}
+        return findByUsernameOrEmail(email);
+    }
 
-	@Override
-	@Transactional(readOnly = true)
-	public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
-		log.debug("Loading user details by username: {}", username);
-		return userDetailsService.loadUserByUsername(username);
-	}
+    @Override
+    @Transactional(readOnly = true)
+    public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
+        log.debug("Loading user details by username: {}", username);
+        return userDetailsService.loadUserByUsername(username);
+    }
 
-	@Override
+    @Override
     @Transactional
     public UserResponse restore(UUID id) {
         log.debug("Restoring user with ID: {}", id);
@@ -124,18 +124,18 @@ public class UserServiceImpl implements UserService {
         return userMapper.toDto(restoredUser);
     }
 
-	@Override
-	@Transactional
-	public UserResponse update(UUID id, UserUpdateRequest request) {
-		log.debug("Updating user with ID: {}, request: {}", id, request);
+    @Override
+    @Transactional
+    public UserResponse update(UUID id, UserUpdateRequest request) {
+        log.debug("Updating user with ID: {}, request: {}", id, request);
 
-		final User user = userRepository.findById(id)
-				.orElseThrow(() -> SpacedLearningException.resourceNotFound("User", id));
+        final User user = userRepository.findById(id)
+                .orElseThrow(() -> SpacedLearningException.resourceNotFound("User", id));
 
-		userMapper.updateFromDto(request, user);
-		final User updatedUser = userRepository.save(user);
+        userMapper.updateFromDto(request, user);
+        final User updatedUser = userRepository.save(user);
 
-		log.info("User updated successfully with ID: {}", updatedUser.getId());
-		return userMapper.toDto(updatedUser);
-	}
+        log.info("User updated successfully with ID: {}", updatedUser.getId());
+        return userMapper.toDto(updatedUser);
+    }
 }

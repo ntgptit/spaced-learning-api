@@ -45,7 +45,7 @@ public interface UserService {
 	 * @param email User email
 	 * @return User response
 	 */
-	UserResponse findByEmail(String email);
+	UserResponse findByUsernameOrEmail(String email);
 
 	/**
 	 * Find user by ID
