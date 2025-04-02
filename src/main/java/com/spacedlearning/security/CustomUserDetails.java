@@ -28,17 +28,17 @@ public class CustomUserDetails extends org.springframework.security.core.userdet
         return user != null && UserStatus.ACTIVE.equals(user.getStatus());
     }
 
-    private transient User user;
+	private final User user;
 
 	/**
-     * Constructs a CustomUserDetails from a User entity
-     *
-     * @param user        The original User entity
-     * @param authorities The authorities granted to the user
-     */
+	 * Constructs a CustomUserDetails from a User entity
+	 *
+	 * @param user        The original User entity
+	 * @param authorities The authorities granted to the user
+	 */
     public CustomUserDetails(User user, Collection<? extends GrantedAuthority> authorities) {
         super(
-            user.getEmail(),
+				user.getUsername(), // Use username as principal
             user.getPassword(),
             isUserActive(user),
             true, // accountNonExpired

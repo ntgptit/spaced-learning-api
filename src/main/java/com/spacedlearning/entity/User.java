@@ -18,6 +18,7 @@ import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -39,6 +40,12 @@ public class User extends BaseEntity {
 	@Size(max = 100)
 	@Column(name = "name", length = 100)
 	private String name;
+
+	@NotBlank
+	@Size(min = 3, max = 50)
+	@Pattern(regexp = "^[a-zA-Z0-9._-]+$", message = "Username can only contain letters, numbers, dots, underscores and hyphens")
+	@Column(name = "username", length = 50, unique = true, nullable = false)
+	private String username;
 
 	@Email
 	@NotBlank
@@ -101,5 +108,11 @@ public class User extends BaseEntity {
 			return false;
 		}
 		return roles.remove(role);
+	}
+
+	@Override
+	public String toString() {
+		return "User{" + "id=" + getId() + ", username='" + username + '\'' + ", email='" + email + '\'' + ", name='"
+				+ name + '\'' + ", status=" + status + ", createdAt=" + getCreatedAt() + '}';
 	}
 }

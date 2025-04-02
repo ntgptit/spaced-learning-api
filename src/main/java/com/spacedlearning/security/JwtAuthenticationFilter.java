@@ -11,13 +11,13 @@ import org.springframework.security.authentication.AuthenticationServiceExceptio
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.spacedlearning.dto.auth.AuthRequest;
 import com.spacedlearning.dto.auth.AuthResponse;
 import com.spacedlearning.dto.user.UserResponse;
+import com.spacedlearning.entity.User;
 import com.spacedlearning.exception.ApiError;
 
 import jakarta.servlet.FilterChain;
@@ -32,9 +32,9 @@ import lombok.extern.slf4j.Slf4j;
  */
 @Slf4j
 public class JwtAuthenticationFilter extends UsernamePasswordAuthenticationFilter {
-    private final AuthenticationManager authenticationManager;
-    private final JwtTokenProvider tokenProvider;
-    private final ObjectMapper objectMapper;
+	private final AuthenticationManager authenticationManager;
+	private final JwtTokenProvider tokenProvider;
+	private final ObjectMapper objectMapper;
 
 	public JwtAuthenticationFilter(AuthenticationManager authenticationManager, JwtTokenProvider tokenProvider,
 			ObjectMapper objectMapper) {
@@ -44,76 +44,68 @@ public class JwtAuthenticationFilter extends UsernamePasswordAuthenticationFilte
 		setFilterProcessesUrl("/api/v1/auth/login");
 	}
 
-    @Override
-    public Authentication attemptAuthentication(
-            HttpServletRequest request,
-            HttpServletResponse response) throws AuthenticationException {
-        try {
-            final AuthRequest authRequest = objectMapper.readValue(request.getInputStream(), AuthRequest.class);
-            Objects.requireNonNull(authRequest, "Authentication request cannot be null");
-            Objects.requireNonNull(authRequest.getEmail(), "Email cannot be null");
-            Objects.requireNonNull(authRequest.getPassword(), "Password cannot be null");
+	@Override
+	public Authentication attemptAuthentication(HttpServletRequest request, HttpServletResponse response)
+			throws AuthenticationException {
+		try {
+			final AuthRequest authRequest = objectMapper.readValue(request.getInputStream(), AuthRequest.class);
+			Objects.requireNonNull(authRequest, "Authentication request cannot be null");
+			Objects.requireNonNull(authRequest.getUsernameOrEmail(), "Username or email cannot be null");
+			Objects.requireNonNull(authRequest.getPassword(), "Password cannot be null");
 
-            log.debug("Attempting authentication for user: {}", authRequest.getEmail());
+			log.debug("Attempting authentication for user: {}", authRequest.getUsernameOrEmail());
 
-            final Authentication authentication = new UsernamePasswordAuthenticationToken(
-                authRequest.getEmail(),
-                authRequest.getPassword());
+			final Authentication authentication = new UsernamePasswordAuthenticationToken(
+					authRequest.getUsernameOrEmail(), authRequest.getPassword());
 
-            return authenticationManager.authenticate(authentication);
-        } catch (final IOException e) {
-            log.error("Failed to parse authentication request", e);
-            throw new AuthenticationServiceException("Failed to parse authentication request", e);
-        } catch (final NullPointerException e) {
-            log.error("Invalid authentication request: {}", e.getMessage());
-            throw new AuthenticationServiceException("Invalid authentication request: " + e.getMessage(), e);
-        }
-    }
+			return authenticationManager.authenticate(authentication);
+		} catch (final IOException e) {
+			log.error("Failed to parse authentication request", e);
+			throw new AuthenticationServiceException("Failed to parse authentication request", e);
+		} catch (final NullPointerException e) {
+			log.error("Invalid authentication request: {}", e.getMessage());
+			throw new AuthenticationServiceException("Invalid authentication request: " + e.getMessage(), e);
+		}
+	}
 
-    @Override
-    protected void successfulAuthentication(
-            HttpServletRequest request,
-            HttpServletResponse response,
-            FilterChain chain,
-            Authentication authResult) throws IOException, ServletException {
+	@Override
+	protected void successfulAuthentication(HttpServletRequest request, HttpServletResponse response, FilterChain chain,
+			Authentication authResult) throws IOException, ServletException {
 
-        final UserDetails userDetails = (UserDetails) authResult.getPrincipal();
-        log.info("Authentication successful for user: {}", userDetails.getUsername());
+		final CustomUserDetails userDetails = (CustomUserDetails) authResult.getPrincipal();
+		final User user = userDetails.getUser();
 
-        final String token = tokenProvider.generateToken(authResult);
+		log.info("Authentication successful for user: {}", userDetails.getUsername());
+
+		final String token = tokenProvider.generateToken(authResult);
 		final String refreshToken = tokenProvider.generateRefreshToken(authResult);
 
-		// Create basic user response without UserMapper
-		final UserResponse userResponse = UserResponse.builder().email(userDetails.getUsername()).roles(
-				userDetails.getAuthorities().stream().map(auth -> auth.getAuthority().replace("ROLE_", "")).toList())
+		// Create user response
+		final UserResponse userResponse = UserResponse.builder().id(user.getId()).username(user.getUsername())
+				.email(user.getEmail()).displayName(user.getName()).roles(userDetails.getAuthorities().stream()
+						.map(auth -> auth.getAuthority().replace("ROLE_", "")).toList())
 				.build();
 
 		final AuthResponse authResponse = AuthResponse.builder().token(token).refreshToken(refreshToken)
 				.user(userResponse).build();
 
-        response.setContentType(MediaType.APPLICATION_JSON_VALUE);
-        response.setStatus(HttpStatus.OK.value());
-        objectMapper.writeValue(response.getOutputStream(), authResponse);
-    }
+		response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+		response.setStatus(HttpStatus.OK.value());
+		objectMapper.writeValue(response.getOutputStream(), authResponse);
+	}
 
-    @Override
-    protected void unsuccessfulAuthentication(
-            HttpServletRequest request,
-            HttpServletResponse response,
-            AuthenticationException failed) throws IOException, ServletException {
+	@Override
+	protected void unsuccessfulAuthentication(HttpServletRequest request, HttpServletResponse response,
+			AuthenticationException failed) throws IOException, ServletException {
 
-        log.warn("Authentication failed: {}", failed.getMessage());
+		log.warn("Authentication failed: {}", failed.getMessage());
 
-		final ApiError errorResponse = ApiError.builder()
-            .timestamp(LocalDateTime.now())
-            .status(HttpStatus.UNAUTHORIZED.value())
-            .error(HttpStatus.UNAUTHORIZED.getReasonPhrase())
-            .message("Authentication failed: " + failed.getMessage())
-            .path(request.getRequestURI())
-            .build();
+		final ApiError errorResponse = ApiError.builder().timestamp(LocalDateTime.now())
+				.status(HttpStatus.UNAUTHORIZED.value()).error(HttpStatus.UNAUTHORIZED.getReasonPhrase())
+				.message("Authentication failed: " + failed.getMessage()).path(request.getRequestURI()).build();
 
-        response.setStatus(HttpStatus.UNAUTHORIZED.value());
-        response.setContentType(MediaType.APPLICATION_JSON_VALUE);
-        objectMapper.writeValue(response.getOutputStream(), errorResponse);
-    }
+		response.setStatus(HttpStatus.UNAUTHORIZED.value());
+		response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+		objectMapper.writeValue(response.getOutputStream(), errorResponse);
+	}
 }

@@ -6,6 +6,7 @@ import java.util.Base64;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 import javax.crypto.SecretKey;
@@ -51,16 +52,6 @@ public class JwtTokenProvider {
     private static final SecureRandom secureRandom = new SecureRandom();
 
     /**
-     * Generates a JWT token for the given user details.
-     *
-     * @param userDetails The user details
-     * @return A JWT token
-     */
-    public String generateToken(UserDetails userDetails) {
-        return generateToken(new HashMap<>(), userDetails);
-    }
-
-    /**
      * Generates a JWT token for the given authentication.
      *
      * @param authentication The authentication object
@@ -69,12 +60,10 @@ public class JwtTokenProvider {
     public String generateToken(Authentication authentication) {
         final UserDetails userDetails = (UserDetails) authentication.getPrincipal();
 
-        // Extract authorities as a comma-separated string
-        final String authorities = authentication
-            .getAuthorities()
-            .stream()
-            .map(GrantedAuthority::getAuthority)
-            .collect(Collectors.joining(","));
+		// Extract authorities as a comma-separated string, safely handling null
+		final String authorities = Optional.ofNullable(authentication.getAuthorities())
+				.map(auths -> auths.stream().map(GrantedAuthority::getAuthority).collect(Collectors.joining(",")))
+				.orElse("");
 
         // Add authorities to claims
         final Map<String, Object> claims = new HashMap<>();
@@ -238,7 +227,7 @@ public class JwtTokenProvider {
      * @return A random string to use as token ID
      */
     private String generateTokenId() {
-        byte[] randomBytes = new byte[32];
+        final byte[] randomBytes = new byte[32];
         secureRandom.nextBytes(randomBytes);
         return Base64.getUrlEncoder().withoutPadding().encodeToString(randomBytes);
     }

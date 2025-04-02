@@ -1,4 +1,3 @@
-// File: src/main/java/com/spacedlearning/controller/AuthController.java
 package com.spacedlearning.controller;
 
 import org.springframework.http.HttpStatus;
@@ -38,9 +37,9 @@ public class AuthController {
 	private final AuthService authService;
 
 	@PostMapping("/login")
-	@Operation(summary = "Login", description = "Authenticates a user and returns JWT tokens")
+	@Operation(summary = "Login", description = "Authenticates a user with username or email and returns JWT tokens")
 	public ResponseEntity<DataResponse<AuthResponse>> login(@Valid @RequestBody AuthRequest request) {
-		log.debug("REST request to login user with email: {}", request.getEmail());
+		log.debug("REST request to login user with username or email: {}", request.getUsernameOrEmail());
 		final AuthResponse authResponse = authService.authenticate(request);
 		return ResponseEntity.ok(DataResponse.of(authResponse));
 	}
@@ -56,7 +55,8 @@ public class AuthController {
 	@PostMapping("/register")
 	@Operation(summary = "Register user", description = "Registers a new user")
 	public ResponseEntity<DataResponse<UserResponse>> register(@Valid @RequestBody RegisterRequest request) {
-		log.debug("REST request to register user with email: {}", request.getEmail());
+		log.debug("REST request to register user with username: {} and email: {}", request.getUsername(),
+				request.getEmail());
 		final UserResponse registeredUser = authService.register(request);
 		return ResponseEntity.status(HttpStatus.CREATED).body(DataResponse.of(registeredUser));
 	}

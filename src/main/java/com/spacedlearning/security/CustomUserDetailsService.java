@@ -29,13 +29,13 @@ public class CustomUserDetailsService implements UserDetailsService {
 
 	@Override
 	@Transactional(readOnly = true)
-	public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
-		log.debug("Loading user details for username: {}", username);
+	public UserDetails loadUserByUsername(String usernameOrEmail) throws UsernameNotFoundException {
+		log.debug("Loading user details for username or email: {}", usernameOrEmail);
 
-		// Use findByEmailWithRoles to avoid N+1 query problem
-		final User user = userRepository.findByEmailWithRoles(username).orElseThrow(() -> {
-			log.error("User not found with email: {}", username);
-			return new UsernameNotFoundException("User not found with email: " + username);
+		// Use findByUsernameOrEmailWithRoles to avoid N+1 query problem
+		final User user = userRepository.findByUsernameOrEmailWithRoles(usernameOrEmail).orElseThrow(() -> {
+			log.error("User not found with username or email: {}", usernameOrEmail);
+			return new UsernameNotFoundException("User not found with username or email: " + usernameOrEmail);
 		});
 
 		return buildUserDetails(user);
@@ -53,12 +53,8 @@ public class CustomUserDetailsService implements UserDetailsService {
 				.map(role -> new SimpleGrantedAuthority(role.getName())).collect(Collectors.toList());
 
 		// Additional log to help with debugging
-		log.debug("Built UserDetails for user: {}, with authorities: {}", user.getEmail(), authorities);
+		log.debug("Built UserDetails for user: {}, with authorities: {}", user.getUsername(), authorities);
 
-		return new org.springframework.security.core.userdetails.User(user.getEmail(), user.getPassword(),
-				user.getStatus() != null && "ACTIVE".equals(user.getStatus().getValue()), true, // account not expired
-				true, // credentials not expired
-				true, // account not locked
-				authorities);
+		return new CustomUserDetails(user, authorities);
     }
 }

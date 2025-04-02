@@ -48,10 +48,20 @@ public class UserMapper {
 	public UserResponse toDto(User user) {
 		if (user == null) {
 			return null;
+		}
+
+		// Split name into first and last name if possible
+		String firstName = "";
+		String lastName = "";
+
+		if (user.getName() != null && !user.getName().trim().isEmpty()) {
+			final String[] nameParts = user.getName().trim().split("\\s+", 2);
+			firstName = nameParts[0];
+			lastName = nameParts.length > 1 ? nameParts[1] : "";
         }
 
-		return UserResponse.builder().id(user.getId()).email(user.getEmail()).displayName(user.getName())
-				.createdAt(user.getCreatedAt())
+		return UserResponse.builder().id(user.getId()).username(user.getUsername()).email(user.getEmail())
+				.firstName(firstName).lastName(lastName).displayName(user.getName()).createdAt(user.getCreatedAt())
 				.roles(user.getRoles() != null
 						? user.getRoles().stream().map(Role::getName).collect(Collectors.toList())
 						: null)
@@ -70,8 +80,7 @@ public class UserMapper {
         }
 
 		return UserDetailedResponse.builder().id(user.getId()).email(user.getEmail()).displayName(user.getName())
-				.createdAt(user.getCreatedAt()).updatedAt(user.getUpdatedAt()).deletedAt(user.getDeletedAt())
-                .build();
+				.createdAt(user.getCreatedAt()).updatedAt(user.getUpdatedAt()).deletedAt(user.getDeletedAt()).build();
     }
 
     /**
@@ -86,6 +95,7 @@ public class UserMapper {
 		}
 
 		final User user = new User();
+		user.setUsername(request.getUsername());
         user.setEmail(request.getEmail());
         user.setPassword(passwordEncoder.encode(request.getPassword()));
 

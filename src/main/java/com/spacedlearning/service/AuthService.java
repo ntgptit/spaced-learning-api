@@ -1,4 +1,3 @@
-// File: src/main/java/com/spacedlearning/service/AuthService.java
 package com.spacedlearning.service;
 
 import com.spacedlearning.dto.auth.AuthRequest;
@@ -15,8 +14,8 @@ public interface AuthService {
 	/**
 	 * Authenticate a user
 	 * 
-	 * @param request Auth request
-	 * @return Auth response
+	 * @param request Auth request containing username/email and password
+	 * @return Auth response with tokens and user information
 	 */
 	AuthResponse authenticate(AuthRequest request);
 
@@ -24,7 +23,7 @@ public interface AuthService {
 	 * Extract username from token
 	 * 
 	 * @param token JWT token
-	 * @return Username
+	 * @return Username or email
 	 */
 	String getUsernameFromToken(String token);
 
@@ -32,7 +31,7 @@ public interface AuthService {
 	 * Refresh an authentication token
 	 * 
 	 * @param request Refresh token request
-	 * @return Auth response
+	 * @return Auth response with new tokens
 	 */
 	AuthResponse refreshToken(RefreshTokenRequest request);
 
