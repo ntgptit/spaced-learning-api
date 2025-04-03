@@ -5,9 +5,10 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
 import java.util.UUID;
 
-import org.apache.commons.lang3.ObjectUtils;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -31,7 +32,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Implementation of RepetitionService
+ * Implementation of RepetitionService that handles the spaced repetition algorithm
+ * for learning modules.
  */
 @Service
 @RequiredArgsConstructor
@@ -41,26 +43,24 @@ public class RepetitionServiceImpl implements RepetitionService {
     // Base parameters for spaced repetition algorithm
     private static final double BASE_DAILY_WORDS = 41.7;
     private static final int[] REVIEW_MULTIPLIERS = { 2, 4, 8, 13, 19, 26 };
-
+    private static final int MAX_WORD_FACTOR = 3;
+    private static final int MAX_INTERVAL_DAYS = 31;
+    private static final int MIN_DAILY_WORDS = 20;
     private final RepetitionRepository repetitionRepository;
     private final ModuleProgressRepository progressRepository;
     private final RepetitionMapper repetitionMapper;
 
     @Override
     @Transactional
-    public RepetitionResponse create(RepetitionCreateRequest request) {
+    public RepetitionResponse create(final RepetitionCreateRequest request) {
+        Objects.requireNonNull(request, "Repetition create request must not be null");
         log.debug("Creating new repetition: {}", request);
 
         // Validate module progress existence
-        final ModuleProgress progress = progressRepository.findById(request.getModuleProgressId()).orElseThrow(
-                () -> SpacedLearningException.resourceNotFound("ModuleProgress", request.getModuleProgressId()));
+        final ModuleProgress progress = findModuleProgress(request.getModuleProgressId());
 
         // Check if repetition already exists
-        if (repetitionRepository.existsByModuleProgressIdAndRepetitionOrder(request.getModuleProgressId(),
-                request.getRepetitionOrder())) {
-            throw SpacedLearningException.resourceAlreadyExists("Repetition", "module_progress_id and repetition_order",
-                    request.getModuleProgressId() + ", " + request.getRepetitionOrder());
-        }
+        validateRepetitionDoesNotExist(request.getModuleProgressId(), request.getRepetitionOrder());
 
         // Create and save repetition
         final Repetition repetition = repetitionMapper.toEntity(request, progress);
@@ -75,48 +75,27 @@ public class RepetitionServiceImpl implements RepetitionService {
 
     @Override
     @Transactional
-    public List<RepetitionResponse> createDefaultSchedule(UUID moduleProgressId) {
+    public List<RepetitionResponse> createDefaultSchedule(final UUID moduleProgressId) {
+        Objects.requireNonNull(moduleProgressId, "Module progress ID must not be null");
         log.debug("Creating default repetition schedule for module progress ID: {}", moduleProgressId);
 
         // Validate module progress existence
-        final ModuleProgress progress = progressRepository.findById(moduleProgressId)
-                .orElseThrow(() -> SpacedLearningException.resourceNotFound("ModuleProgress", moduleProgressId));
+        final ModuleProgress progress = findModuleProgress(moduleProgressId);
 
         // Check if schedule already exists
         final List<Repetition> existingRepetitions = repetitionRepository
                 .findByModuleProgressIdOrderByRepetitionOrder(moduleProgressId);
+
         if (!existingRepetitions.isEmpty()) {
             log.info("Repetition schedule already exists for module progress ID: {}", moduleProgressId);
             return repetitionMapper.toDtoList(existingRepetitions);
         }
 
-        // Get reference date (first learning date or today)
-        LocalDate referenceDate = progress.getFirstLearningDate();
-        if (referenceDate == null) {
-            referenceDate = LocalDate.now();
-            progress.setFirstLearningDate(referenceDate);
-            progressRepository.save(progress);
-        }
-
-        final List<Repetition> repetitions = new ArrayList<>();
-        final RepetitionOrder[] orders = RepetitionOrder.values();
+        // Initialize first learning date if not set
+        initializeFirstLearningDate(progress);
 
         // Create repetitions based on advanced algorithm
-        for (int i = 0; i < orders.length; i++) {
-            final RepetitionOrder order = orders[i];
-
-            // Calculate review date based on algorithm
-            final LocalDate reviewDate = calculateReviewDate(progress, i);
-
-            final Repetition repetition = new Repetition();
-            repetition.setModuleProgress(progress);
-            repetition.setRepetitionOrder(order);
-            repetition.setStatus(RepetitionStatus.NOT_STARTED);
-            repetition.setReviewDate(reviewDate);
-
-            repetitions.add(repetition);
-        }
-
+        final List<Repetition> repetitions = createRepetitionsForProgress(progress);
         final List<Repetition> savedRepetitions = repetitionRepository.saveAll(repetitions);
 
         // Update next study date in module progress
@@ -129,63 +108,170 @@ public class RepetitionServiceImpl implements RepetitionService {
     }
 
     /**
-     * Calculates the appropriate review date based on the Excel formula algorithm
-     * 
+     * Creates repetition schedule based on the spaced repetition algorithm
+     *
+     * @param progress The module progress
+     * @return List of repetitions
+     */
+    private List<Repetition> createRepetitionsForProgress(final ModuleProgress progress) {
+        final List<Repetition> repetitions = new ArrayList<>();
+        final RepetitionOrder[] orders = RepetitionOrder.values();
+
+        for (int i = 0; i < orders.length; i++) {
+            final RepetitionOrder order = orders[i];
+            final LocalDate reviewDate = calculateReviewDate(progress, i);
+
+            final Repetition repetition = new Repetition();
+            repetition.setModuleProgress(progress);
+            repetition.setRepetitionOrder(order);
+            repetition.setStatus(RepetitionStatus.NOT_STARTED);
+            repetition.setReviewDate(reviewDate);
+
+            repetitions.add(repetition);
+        }
+
+        return repetitions;
+    }
+
+    /**
+     * Initializes first learning date if not set
+     *
+     * @param progress The module progress to update
+     */
+    private void initializeFirstLearningDate(final ModuleProgress progress) {
+        if (progress.getFirstLearningDate() == null) {
+            progress.setFirstLearningDate(LocalDate.now());
+            progressRepository.save(progress);
+        }
+    }
+
+    /**
+     * Calculates the appropriate review date based on the spaced repetition algorithm
+     *
      * @param progress    The module progress
      * @param reviewIndex The index of the current review (0-based)
      * @return The calculated review date
      */
-    private LocalDate calculateReviewDate(ModuleProgress progress, int reviewIndex) {
+    private LocalDate calculateReviewDate(final ModuleProgress progress, final int reviewIndex) {
         // Get base parameters from progress
-        final Integer wordCount = ObjectUtils.defaultIfNull(progress.getModule().getWordCount(), 0);
-        final double dailyWordCount = Math.max(20, wordCount > 0 ? wordCount : BASE_DAILY_WORDS);
-        final CycleStudied cyclesStudied = progress.getCyclesStudied();
-        final int studyCycleCount = getStudyCycleCount(cyclesStudied);
-        getCompletedReviewCount(progress);
-        final BigDecimal percentComplete = ObjectUtils.defaultIfNull(progress.getPercentComplete(),
-                BigDecimal.valueOf(100));
+        final Integer wordCount = progress.getModule() != null ? progress.getModule().getWordCount() : 0;
+        final double dailyWordCount = Math.max(MIN_DAILY_WORDS, wordCount > 0 ? wordCount : BASE_DAILY_WORDS);
+        final int studyCycleCount = getStudyCycleCount(progress.getCyclesStudied());
+        final BigDecimal percentComplete = progress.getPercentComplete();
 
         // Apply formula calculations
-        final double progressMultiplier = Math.max(0.7, Math.min(1.5, percentComplete.doubleValue() / 100.0));
         final int adjustedCycleCount = Math.max(1, studyCycleCount);
-        final double wordFactor = Math.min(3, Math.max(dailyWordCount, BASE_DAILY_WORDS) / BASE_DAILY_WORDS);
-
-        // Calculate interval based on review index
-        final int baseMultiplier = reviewIndex < REVIEW_MULTIPLIERS.length ? REVIEW_MULTIPLIERS[reviewIndex]
-                : REVIEW_MULTIPLIERS[REVIEW_MULTIPLIERS.length - 1];
-
-        // Calculate intervals using Excel formula logic
-        final double baseInterval = wordFactor * Math.min(31, adjustedCycleCount * baseMultiplier) * progressMultiplier;
-
-        final double additionalInterval;
-        if (reviewIndex == 0) {
-            // For first review, keep it simple
-            additionalInterval = 0;
-        } else {
-            // For subsequent reviews, add additional spacing
-            additionalInterval = (wordFactor * Math.min(31, adjustedCycleCount * 25) + 7) * studyCycleCount;
-        }
-
-        // Calculate total days and round to nearest integer
-        final int totalDays = (int) Math.round(baseInterval + (reviewIndex > 0 ? additionalInterval : 0));
+        final double wordFactor = calculateWordFactor(dailyWordCount);
+        double baseInterval = calculateBaseInterval(reviewIndex, adjustedCycleCount, wordFactor);
 
         // Get reference date
-        LocalDate referenceDate = progress.getFirstLearningDate();
-        if (referenceDate == null) {
-            referenceDate = LocalDate.now();
+        final LocalDate referenceDate = progress.getFirstLearningDate() != null ? progress.getFirstLearningDate()
+                : LocalDate.now();
+
+        // Calculate additional interval (only for non-first review)
+        final double additionalInterval = reviewIndex > 0 ? (wordFactor * Math.min(31, adjustedCycleCount * 25) + 7)
+                * studyCycleCount : 0;
+
+        baseInterval = baseInterval + additionalInterval;
+
+        // Calculate days to add based on percentage
+        final double daysToAdd = percentComplete == null || percentComplete.doubleValue() == 0.0
+                ? baseInterval
+                : baseInterval * percentComplete.doubleValue() / 100.0;
+
+        final long roundedDaysToAdd = Math.round(daysToAdd);
+
+        // Calculate initial review date
+        final LocalDate initialCalculatedDate = referenceDate.plusDays(roundedDaysToAdd);
+
+        // Check constraint (not more than 60 days from first learning date)
+        LocalDate dateBeforeOptimization = initialCalculatedDate;
+        if (progress.getFirstLearningDate() != null && initialCalculatedDate.minusDays(60).isAfter(progress
+                .getFirstLearningDate())) {
+            dateBeforeOptimization = progress.getFirstLearningDate().plusDays(60);
         }
 
-        // Return the calculated date
-        return referenceDate.plusDays(totalDays);
+        // Find optimal date with proper distribution
+        return findOptimalDate(dateBeforeOptimization);
+    }
+
+    /**
+     * Finds an optimal date that doesn't overload the user's schedule
+     *
+     * @param initialDate The initially calculated review date
+     * @return An optimized date with better workload distribution
+     */
+    private LocalDate findOptimalDate(final LocalDate initialDate) {
+        int repetitionCount;
+        try {
+            repetitionCount = repetitionRepository.countReviewDateExisted(initialDate);
+        } catch (final Exception e) {
+            log.error("Error counting repetitions for date {}: {}", initialDate, e.getMessage(), e);
+            return initialDate;
+        }
+
+        // If date is not overloaded, return as is
+        if (repetitionCount <= 3) {
+            return initialDate;
+        }
+
+        // Try to find a date with fewer repetitions
+        log.warn("Initial date {} is overloaded (count={}). Searching for alternatives within 7 days...",
+                initialDate, repetitionCount);
+
+        for (int i = 1; i <= 7; i++) {
+            final LocalDate candidateDate = initialDate.plusDays(i);
+            int candidateCount;
+            try {
+                candidateCount = repetitionRepository.countReviewDateExisted(candidateDate);
+            } catch (final Exception e) {
+                log.error("Error counting repetitions for candidate date {}: {}", candidateDate, e.getMessage(), e);
+                continue;
+            }
+
+            if (candidateCount <= 3) {
+                log.info("Found suitable alternative date: {}", candidateDate);
+                return candidateDate;
+            }
+        }
+
+        // If all dates are heavily loaded, return date with smallest offset (+1 day)
+        final LocalDate fallbackDate = initialDate.plusDays(1);
+        log.warn("No suitable alternative found within 7 days. Falling back to: {}", fallbackDate);
+        return fallbackDate;
+    }
+
+    /**
+     * Calculates the word factor based on daily word count
+     *
+     * @param dailyWordCount The daily word count
+     * @return The calculated word factor
+     */
+    private double calculateWordFactor(final double dailyWordCount) {
+        return Math.min(MAX_WORD_FACTOR, Math.max(dailyWordCount, BASE_DAILY_WORDS) / BASE_DAILY_WORDS);
+    }
+
+    /**
+     * Calculates the base interval for the spaced repetition algorithm
+     *
+     * @param reviewIndex        The review index (0-based)
+     * @param adjustedCycleCount The adjusted cycle count
+     * @param wordFactor         The word factor
+     * @return The calculated base interval
+     */
+    private double calculateBaseInterval(final int reviewIndex, final int adjustedCycleCount, final double wordFactor) {
+        final int baseMultiplier = reviewIndex < REVIEW_MULTIPLIERS.length ? REVIEW_MULTIPLIERS[reviewIndex]
+                : REVIEW_MULTIPLIERS[REVIEW_MULTIPLIERS.length - 1];
+        return wordFactor * Math.min(MAX_INTERVAL_DAYS, adjustedCycleCount * baseMultiplier);
     }
 
     /**
      * Updates the nextStudyDate field in ModuleProgress based on the earliest
      * upcoming repetition
-     * 
+     *
      * @param progress The module progress to update
      */
-    private void updateNextStudyDate(ModuleProgress progress) {
+    private void updateNextStudyDate(final ModuleProgress progress) {
         final List<Repetition> notCompletedRepetitions = repetitionRepository
                 .findByModuleProgressIdAndStatusOrderByReviewDate(progress.getId(), RepetitionStatus.NOT_STARTED);
 
@@ -200,8 +286,11 @@ public class RepetitionServiceImpl implements RepetitionService {
 
     /**
      * Convert CycleStudied enum to numeric value for calculations
+     *
+     * @param cyclesStudied The cycle studied enum
+     * @return The numeric value for calculations
      */
-    private int getStudyCycleCount(CycleStudied cyclesStudied) {
+    private int getStudyCycleCount(final CycleStudied cyclesStudied) {
         if (cyclesStudied == null) {
             return 0;
         }
@@ -214,7 +303,6 @@ public class RepetitionServiceImpl implements RepetitionService {
         case SECOND_REVIEW:
             return 2;
         case THIRD_REVIEW:
-            return 3;
         case MORE_THAN_THREE_REVIEWS:
             return 3;
         default:
@@ -224,20 +312,22 @@ public class RepetitionServiceImpl implements RepetitionService {
 
     /**
      * Count completed repetitions for a module progress
+     *
+     * @param progress The module progress
+     * @return The count of completed repetitions
      */
-    private int getCompletedReviewCount(ModuleProgress progress) {
+    private int getCompletedReviewCount(final ModuleProgress progress) {
         return (int) repetitionRepository.countByModuleProgressIdAndStatus(progress.getId(),
                 RepetitionStatus.COMPLETED);
     }
 
     @Override
     @Transactional
-    public void delete(UUID id) {
+    public void delete(final UUID id) {
+        Objects.requireNonNull(id, "Repetition ID must not be null");
         log.debug("Deleting repetition with ID: {}", id);
 
-        final Repetition repetition = repetitionRepository.findById(id)
-                .orElseThrow(() -> SpacedLearningException.resourceNotFound("Repetition", id));
-
+        final Repetition repetition = findRepetition(id);
         final ModuleProgress progress = repetition.getModuleProgress();
 
         repetition.softDelete(); // Use soft delete
@@ -251,23 +341,25 @@ public class RepetitionServiceImpl implements RepetitionService {
 
     @Override
     @Transactional(readOnly = true)
-    public Page<RepetitionResponse> findAll(Pageable pageable) {
+    public Page<RepetitionResponse> findAll(final Pageable pageable) {
+        Objects.requireNonNull(pageable, "Pageable must not be null");
         log.debug("Finding all repetitions with pagination: {}", pageable);
         return repetitionRepository.findAll(pageable).map(repetitionMapper::toDto);
     }
 
     @Override
     @Transactional(readOnly = true)
-    public RepetitionResponse findById(UUID id) {
+    public RepetitionResponse findById(final UUID id) {
+        Objects.requireNonNull(id, "Repetition ID must not be null");
         log.debug("Finding repetition by ID: {}", id);
-        final Repetition repetition = repetitionRepository.findById(id)
-                .orElseThrow(() -> SpacedLearningException.resourceNotFound("Repetition", id));
+        final Repetition repetition = findRepetition(id);
         return repetitionMapper.toDto(repetition);
     }
 
     @Override
     @Transactional(readOnly = true)
-    public List<RepetitionResponse> findByModuleProgressId(UUID moduleProgressId) {
+    public List<RepetitionResponse> findByModuleProgressId(final UUID moduleProgressId) {
+        Objects.requireNonNull(moduleProgressId, "Module progress ID must not be null");
         log.debug("Finding repetitions by module progress ID: {}", moduleProgressId);
 
         // Verify module progress exists
@@ -282,7 +374,10 @@ public class RepetitionServiceImpl implements RepetitionService {
 
     @Override
     @Transactional(readOnly = true)
-    public RepetitionResponse findByModuleProgressIdAndOrder(UUID moduleProgressId, RepetitionOrder repetitionOrder) {
+    public RepetitionResponse findByModuleProgressIdAndOrder(final UUID moduleProgressId,
+            final RepetitionOrder repetitionOrder) {
+        Objects.requireNonNull(moduleProgressId, "Module progress ID must not be null");
+        Objects.requireNonNull(repetitionOrder, "Repetition order must not be null");
         log.debug("Finding repetition by module progress ID: {} and order: {}", moduleProgressId, repetitionOrder);
 
         final Repetition repetition = repetitionRepository
@@ -295,8 +390,10 @@ public class RepetitionServiceImpl implements RepetitionService {
 
     @Override
     @Transactional(readOnly = true)
-    public Page<RepetitionResponse> findDueRepetitions(UUID userId, LocalDate reviewDate, RepetitionStatus status,
-            Pageable pageable) {
+    public Page<RepetitionResponse> findDueRepetitions(final UUID userId, final LocalDate reviewDate,
+            final RepetitionStatus status, final Pageable pageable) {
+        Objects.requireNonNull(userId, "User ID must not be null");
+        Objects.requireNonNull(pageable, "Pageable must not be null");
         log.debug("Finding repetitions due for review for user ID: {} on or before date: {}, status: {}, pageable: {}",
                 userId, reviewDate, status, pageable);
 
@@ -309,29 +406,35 @@ public class RepetitionServiceImpl implements RepetitionService {
 
     @Override
     @Transactional
-    public RepetitionResponse update(UUID id, RepetitionUpdateRequest request) {
+    public RepetitionResponse update(final UUID id, final RepetitionUpdateRequest request) {
+        Objects.requireNonNull(id, "Repetition ID must not be null");
+        Objects.requireNonNull(request, "Repetition update request must not be null");
         log.debug("Updating repetition with ID: {}, request: {}", id, request);
 
-        final Repetition repetition = repetitionRepository.findById(id)
-                .orElseThrow(() -> SpacedLearningException.resourceNotFound("Repetition", id));
-
+        final Repetition repetition = findRepetition(id);
         final ModuleProgress progress = repetition.getModuleProgress();
-
-        // Keep previous status to detect changes
         final RepetitionStatus previousStatus = repetition.getStatus();
 
+        // Apply updates from DTO
         repetitionMapper.updateFromDto(request, repetition);
-        final Repetition updatedRepetition = repetitionRepository.save(repetition);
+        final RepetitionStatus newStatus = repetition.getStatus();
 
-        // If status changed to COMPLETED, check if all repetitions are completed
+        // If status is changing to COMPLETED, recalculate next review date
         if (previousStatus != RepetitionStatus.COMPLETED &&
-                updatedRepetition.getStatus() == RepetitionStatus.COMPLETED) {
+                newStatus == RepetitionStatus.COMPLETED) {
 
-            // Check if all repetitions in this cycle are completed
+            log.debug("Status changed from {} to COMPLETED for Repetition ID: {}", previousStatus, id);
+
+            // Find the next repetition (if any) and update its date
+            findAndUpdateNextRepetition(progress, repetition.getRepetitionOrder());
+
+            // Check if this was the last repetition in the cycle
             checkAndUpdateCycleStudied(progress);
         }
 
-        // Update next study date after status change
+        final Repetition updatedRepetition = repetitionRepository.save(repetition);
+
+        // Update next study date after all changes
         updateNextStudyDate(progress);
 
         log.info("Repetition updated successfully with ID: {}", updatedRepetition.getId());
@@ -339,9 +442,58 @@ public class RepetitionServiceImpl implements RepetitionService {
     }
 
     /**
-     * Updates the cycle studied status after completing all repetitions in a cycle
+     * Finds the next repetition in sequence and updates its review date based on current progress
+     *
+     * @param progress     The module progress
+     * @param currentOrder The current repetition order that was completed
      */
-    private void checkAndUpdateCycleStudied(ModuleProgress progress) {
+    private void findAndUpdateNextRepetition(ModuleProgress progress, RepetitionOrder currentOrder) {
+        final RepetitionOrder[] orders = RepetitionOrder.values();
+        int currentIndex = -1;
+        for (int i = 0; i < orders.length; i++) {
+            if (orders[i] == currentOrder) {
+                currentIndex = i;
+                break;
+            }
+        }
+
+        // If this is the last repetition or order not found, no next repetition to update
+        if (currentIndex == -1 || currentIndex >= orders.length - 1) {
+            return;
+        }
+
+        final RepetitionOrder nextOrder = orders[currentIndex + 1];
+        final int nextReviewIndex = currentIndex + 1;
+
+        final Optional<Repetition> nextRepetitionOpt = repetitionRepository
+                .findByModuleProgressIdAndRepetitionOrderAndStatus(progress.getId(), nextOrder,
+                        RepetitionStatus.NOT_STARTED);
+
+        if (nextRepetitionOpt.isPresent()) {
+            final Repetition nextRepetition = nextRepetitionOpt.get();
+
+            // Only recalculate if not already completed
+            if (nextRepetition.getStatus() != RepetitionStatus.COMPLETED) {
+                final LocalDate oldReviewDate = nextRepetition.getReviewDate();
+                final LocalDate newReviewDate = calculateReviewDate(progress, nextReviewIndex);
+
+                // Update the next repetition's review date
+                nextRepetition.setReviewDate(newReviewDate);
+                repetitionRepository.save(nextRepetition);
+
+                log.info(
+                        "Updated next repetition review date - ProgressID: {}, OrderCompleted: {}, NextOrder: {}, OldDate: {}, NewDate: {}",
+                        progress.getId(), currentOrder, nextOrder, oldReviewDate, newReviewDate);
+            }
+        }
+    }
+
+    /**
+     * Updates the cycle studied status after completing all repetitions in a cycle
+     *
+     * @param progress The module progress to update
+     */
+    private void checkAndUpdateCycleStudied(final ModuleProgress progress) {
         // Get total repetition count for this module progress
         final long totalRepetitionCount = repetitionRepository.countByModuleProgressId(progress.getId());
 
@@ -350,44 +502,74 @@ public class RepetitionServiceImpl implements RepetitionService {
 
         // Only update cycle when all repetitions in the current cycle are completed
         if (completedCount >= totalRepetitionCount) {
-            // All repetitions are completed, update to next cycle
-            switch (progress.getCyclesStudied()) {
-            case FIRST_TIME:
-                progress.setCyclesStudied(CycleStudied.FIRST_REVIEW);
-                progressRepository.save(progress);
-                log.info("Updated cycle studied to FIRST_REVIEW for progress ID: {}", progress.getId());
-                break;
-            case FIRST_REVIEW:
-                progress.setCyclesStudied(CycleStudied.SECOND_REVIEW);
-                progressRepository.save(progress);
-                log.info("Updated cycle studied to SECOND_REVIEW for progress ID: {}", progress.getId());
-                break;
-            case SECOND_REVIEW:
-                progress.setCyclesStudied(CycleStudied.THIRD_REVIEW);
-                progressRepository.save(progress);
-                log.info("Updated cycle studied to THIRD_REVIEW for progress ID: {}", progress.getId());
-                break;
-            case THIRD_REVIEW:
-                progress.setCyclesStudied(CycleStudied.MORE_THAN_THREE_REVIEWS);
-                progressRepository.save(progress);
-                log.info("Updated cycle studied to MORE_THAN_THREE_REVIEWS for progress ID: {}", progress.getId());
-                break;
-            default:
-                // No change needed for MORE_THAN_THREE_REVIEWS
-                break;
-            }
-
-            // After completing a full cycle, create a new set of repetitions
-            // for the next cycle and reschedule them according to the new cycle level
+            updateToNextCycleLevel(progress);
             createNewRepetitionCycle(progress);
         }
     }
 
     /**
-     * Creates a new set of repetitions for the next study cycle
+     * Updates the cycle studied level to the next level
+     *
+     * @param progress The module progress to update
      */
-    private void createNewRepetitionCycle(ModuleProgress progress) {
-        // First, mark all existing repetitions as completed if they're not already
+    private void updateToNextCycleLevel(final ModuleProgress progress) {
+        switch (progress.getCyclesStudied()) {
+        case FIRST_TIME:
+            updateCycleStudied(progress, CycleStudied.FIRST_REVIEW);
+            break;
+        case FIRST_REVIEW:
+            updateCycleStudied(progress, CycleStudied.SECOND_REVIEW);
+            break;
+        case SECOND_REVIEW:
+            updateCycleStudied(progress, CycleStudied.THIRD_REVIEW);
+            break;
+        case THIRD_REVIEW:
+            updateCycleStudied(progress, CycleStudied.MORE_THAN_THREE_REVIEWS);
+            break;
+        default:
+            // No change needed for MORE_THAN_THREE_REVIEWS
+            break;
+        }
+    }
+
+    /**
+     * Updates the cycle studied level and saves the progress
+     *
+     * @param progress The module progress to update
+     * @param newCycle The new cycle studied level
+     */
+    private void updateCycleStudied(final ModuleProgress progress, final CycleStudied newCycle) {
+        progress.setCyclesStudied(newCycle);
+        progressRepository.save(progress);
+        log.info("Updated cycle studied to {} for progress ID: {}", newCycle, progress.getId());
+    }
+
+    /**
+     * Creates a new set of repetitions for the next study cycle
+     *
+     * @param progress The module progress
+     */
+    private void createNewRepetitionCycle(final ModuleProgress progress) {
+        // Mark all existing repetitions as completed
+        markExistingRepetitionsAsCompleted(progress);
+
+        // Create new repetitions for the next cycle
+        final List<Repetition> newRepetitions = createRepetitionsWithCurrentDate(progress);
+        repetitionRepository.saveAll(newRepetitions);
+
+        log.info("Created new repetition cycle with {} repetitions for module progress ID: {}",
+                newRepetitions.size(), progress.getId());
+
+        // Update next study date
+        updateNextStudyDate(progress);
+    }
+
+    /**
+     * Mark all existing repetitions as completed
+     *
+     * @param progress The module progress
+     */
+    private void markExistingRepetitionsAsCompleted(final ModuleProgress progress) {
         final List<Repetition> existingRepetitions = repetitionRepository
                 .findByModuleProgressIdOrderByRepetitionOrder(progress.getId());
 
@@ -397,39 +579,57 @@ public class RepetitionServiceImpl implements RepetitionService {
             }
         }
         repetitionRepository.saveAll(existingRepetitions);
+    }
 
-        // Create new repetitions for the next cycle with appropriate intervals
-        final List<Repetition> newRepetitions = new ArrayList<>();
-        final RepetitionOrder[] orders = RepetitionOrder.values();
-
-        // Get reference date (today)
-        final LocalDate referenceDate = LocalDate.now();
-
-        // Update first learning date for this new cycle
-        progress.setFirstLearningDate(referenceDate);
+    /**
+     * Create new repetitions using current date as reference
+     *
+     * @param progress The module progress
+     * @return List of new repetitions
+     */
+    private List<Repetition> createRepetitionsWithCurrentDate(final ModuleProgress progress) {
+        progress.setFirstLearningDate(LocalDate.now());
         progressRepository.save(progress);
 
-        // Create repetitions for each order with recalculated intervals
-        for (int i = 0; i < orders.length; i++) {
-            final RepetitionOrder order = orders[i];
+        // Create repetitions based on updated progress
+        return createRepetitionsForProgress(progress);
+    }
 
-            // Calculate review date based on algorithm with new cycle
-            final LocalDate reviewDate = calculateReviewDate(progress, i);
+    /**
+     * Finds a module progress by ID or throws an exception if not found
+     *
+     * @param moduleProgressId The module progress ID
+     * @return The module progress
+     * @throws SpacedLearningException if not found
+     */
+    private ModuleProgress findModuleProgress(final UUID moduleProgressId) {
+        return progressRepository.findById(moduleProgressId)
+                .orElseThrow(() -> SpacedLearningException.resourceNotFound("ModuleProgress", moduleProgressId));
+    }
 
-            final Repetition repetition = new Repetition();
-            repetition.setModuleProgress(progress);
-            repetition.setRepetitionOrder(order);
-            repetition.setStatus(RepetitionStatus.NOT_STARTED);
-            repetition.setReviewDate(reviewDate);
+    /**
+     * Finds a repetition by ID or throws an exception if not found
+     *
+     * @param id The repetition ID
+     * @return The repetition
+     * @throws SpacedLearningException if not found
+     */
+    private Repetition findRepetition(final UUID id) {
+        return repetitionRepository.findById(id)
+                .orElseThrow(() -> SpacedLearningException.resourceNotFound("Repetition", id));
+    }
 
-            newRepetitions.add(repetition);
+    /**
+     * Validates that a repetition does not already exist for the given module progress and order
+     *
+     * @param moduleProgressId The module progress ID
+     * @param repetitionOrder  The repetition order
+     * @throws SpacedLearningException if the repetition already exists
+     */
+    private void validateRepetitionDoesNotExist(final UUID moduleProgressId, final RepetitionOrder repetitionOrder) {
+        if (repetitionRepository.existsByModuleProgressIdAndRepetitionOrder(moduleProgressId, repetitionOrder)) {
+            throw SpacedLearningException.resourceAlreadyExists("Repetition", "module_progress_id and repetition_order",
+                    moduleProgressId + ", " + repetitionOrder);
         }
-
-        repetitionRepository.saveAll(newRepetitions);
-        log.info("Created new repetition cycle with {} repetitions for module progress ID: {}", newRepetitions.size(),
-                progress.getId());
-
-        // Update next study date
-        updateNextStudyDate(progress);
     }
 }
