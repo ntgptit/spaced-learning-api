@@ -92,3 +92,28 @@ CREATE TABLE spaced_learning.repetitions (
     CONSTRAINT repetitions_status_check CHECK (((status)::text = ANY ((ARRAY['NOT_STARTED'::character varying, 'COMPLETED'::character varying, 'SKIPPED'::character varying])::text[]))),
     CONSTRAINT fk9lj2refs205nnsscajx9tywsk FOREIGN KEY (module_progress_id) REFERENCES spaced_learning.module_progress(id)
 );
+-- spaced_learning.user_statistics definition
+
+-- Drop table
+
+-- DROP TABLE spaced_learning.user_statistics;
+
+CREATE TABLE spaced_learning.user_statistics (
+	id uuid NOT NULL,
+	user_id uuid NOT NULL,
+	streak_days int4 NULL,
+	streak_weeks int4 NULL,
+	longest_streak_days int4 NULL,
+	last_statistics_update timestamp(6) NULL,
+	created_at timestamp(6) NULL,
+	updated_at timestamp(6) NULL,
+	deleted_at timestamp(6) NULL,
+	CONSTRAINT uk14hay547dsmu33phkweirx73y UNIQUE (user_id),
+	CONSTRAINT user_statistics_pkey PRIMARY KEY (id)
+);
+CREATE INDEX idx_user_stats_user ON spaced_learning.user_statistics USING btree (user_id);
+
+
+-- spaced_learning.user_statistics foreign keys
+
+ALTER TABLE spaced_learning.user_statistics ADD CONSTRAINT fkn3hnvsmybu7g7ntrwpg563sao FOREIGN KEY (user_id) REFERENCES spaced_learning.users(id);
