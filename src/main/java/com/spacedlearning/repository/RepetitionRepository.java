@@ -103,4 +103,18 @@ public interface RepetitionRepository extends JpaRepository<Repetition, UUID> {
             """, nativeQuery = true)
     int countReviewDateExisted(@Param("reviewDate") LocalDate reviewDate);
 
+    /**
+     * Finds the latest review date of completed repetitions for a module progress
+     *
+     * @param progressId ID of the module progress
+     * @return Optional containing the latest review date or empty if none found
+     */
+    @Query("SELECT MAX(r.reviewDate) FROM Repetition r " +
+            "WHERE r.moduleProgress.id = :progressId AND r.status = 'COMPLETED'")
+    Optional<LocalDate> findLastCompletedRepetitionDate(@Param("progressId") UUID progressId);
+
+    List<Repetition> findByModuleProgressIdAndStatusOrderByRepetitionOrder(
+            @Param("progressId") UUID progressId,
+            @Param("status") RepetitionStatus status);
+
 }
