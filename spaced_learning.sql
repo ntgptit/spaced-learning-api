@@ -52,6 +52,7 @@ CREATE TABLE spaced_learning.users (
 	"password" varchar(120) NOT NULL,
 	status varchar(20) NULL,
 	last_active_date timestamp(6) NULL,
+	username varchar(50) NULL,
 	CONSTRAINT uk6dotkott2kjsp8vw4d0m25fb7 UNIQUE (email),
 	CONSTRAINT users_pkey PRIMARY KEY (id),
 	CONSTRAINT users_status_check CHECK (((status)::text = ANY ((ARRAY['ACTIVE'::character varying, 'INACTIVE'::character varying, 'SUSPENDED'::character varying])::text[])))
@@ -93,35 +94,6 @@ CREATE TABLE spaced_learning.user_roles (
 	CONSTRAINT fkh8ciramu9cc9q3qcqiv4ue8a6 FOREIGN KEY (role_id) REFERENCES spaced_learning.roles(id),
 	CONSTRAINT fkhfh9dx7w3ubf1co1vdev94g3f FOREIGN KEY (user_id) REFERENCES spaced_learning.users(id)
 );
-
-
--- spaced_learning.user_statistics definition
-
--- Drop table
-
--- DROP TABLE spaced_learning.user_statistics;
-
-CREATE TABLE spaced_learning.user_statistics (
-	id uuid NOT NULL,
-	created_at timestamp(6) NULL,
-	deleted_at timestamp(6) NULL,
-	updated_at timestamp(6) NULL,
-	last_statistics_update timestamp(6) NULL,
-	streak_days int4 NULL,
-	streak_weeks int4 NULL,
-	user_id uuid NOT NULL,
-	learned_words int4 NULL,
-	longest_streak_days int4 NULL,
-	total_completed_modules int4 NULL,
-	total_in_progress_modules int4 NULL,
-	total_words int4 NULL,
-	vocabulary_completion_rate numeric(5, 2) NULL,
-	weekly_new_words_rate numeric(5, 2) NULL,
-	CONSTRAINT uk14hay547dsmu33phkweirx73y UNIQUE (user_id),
-	CONSTRAINT user_statistics_pkey PRIMARY KEY (id),
-	CONSTRAINT fkn3hnvsmybu7g7ntrwpg563sao FOREIGN KEY (user_id) REFERENCES spaced_learning.users(id)
-);
-CREATE INDEX idx_user_stats_user ON spaced_learning.user_statistics USING btree (user_id);
 
 
 -- spaced_learning.module_progress definition
