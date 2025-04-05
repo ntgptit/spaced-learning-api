@@ -97,7 +97,7 @@ public class SwaggerConfig {
     @Bean
     GroupedOpenApi bookApiGroup() {
         return GroupedOpenApi.builder()
-                .group("Book-Management") // Thay đổi tên group, loại bỏ khoảng trắng
+                .group("Book Management") // Thay đổi tên group, loại bỏ khoảng trắng
                 .pathsToMatch("/api/v1/books/**", "/api/v1/modules/**")
                 .packagesToScan("com.spacedlearning.controller")
                 .build();
