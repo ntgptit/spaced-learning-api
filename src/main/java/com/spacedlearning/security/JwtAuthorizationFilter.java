@@ -50,13 +50,20 @@ public class JwtAuthorizationFilter extends OncePerRequestFilter {
 
     // Paths that should be excluded from JWT validation
     private final RequestMatcher publicPaths = new OrRequestMatcher(
-        new AntPathRequestMatcher("/api/v1/auth/login"),
-        new AntPathRequestMatcher("/api/v1/auth/register"),
-        new AntPathRequestMatcher("/api/v1/auth/validate"),
-        new AntPathRequestMatcher("/swagger-ui/**"),
-        new AntPathRequestMatcher("/v3/api-docs/**"),
-        new AntPathRequestMatcher("/actuator/health"),
-			new AntPathRequestMatcher("/error"));
+            new AntPathRequestMatcher("/"), // Root path for health check
+            new AntPathRequestMatcher("/api/v1/auth/login"),
+            new AntPathRequestMatcher("/api/v1/auth/register"),
+            new AntPathRequestMatcher("/api/v1/auth/validate"),
+            new AntPathRequestMatcher("/api/v1/auth/refresh-token"),
+            new AntPathRequestMatcher("/swagger-ui/**"),
+            new AntPathRequestMatcher("/v3/api-docs/**"),
+            new AntPathRequestMatcher("/swagger-resources/**"),
+            new AntPathRequestMatcher("/webjars/**"),
+            new AntPathRequestMatcher("/actuator/health"),
+            new AntPathRequestMatcher("/actuator/**"),
+            new AntPathRequestMatcher("/health"),
+            new AntPathRequestMatcher("/info"),
+            new AntPathRequestMatcher("/error"));
 
     /**
      * Filters incoming requests to validate JWT tokens and set up security context.
@@ -72,13 +79,13 @@ public class JwtAuthorizationFilter extends OncePerRequestFilter {
             @NonNull HttpServletRequest request,
             @NonNull HttpServletResponse response,
             @NonNull FilterChain filterChain)
-			throws ServletException, IOException {
+            throws ServletException, IOException {
 
         try {
             // Extract JWT token from Authorization header
             final String token = extractTokenFromRequest(request);
 
-			if (StringUtils.isNotBlank(token) && SecurityContextHolder.getContext().getAuthentication() == null) {
+            if (StringUtils.isNotBlank(token) && SecurityContextHolder.getContext().getAuthentication() == null) {
                 processToken(token, response);
             }
 
@@ -103,7 +110,7 @@ public class JwtAuthorizationFilter extends OncePerRequestFilter {
     private String extractTokenFromRequest(HttpServletRequest request) {
         final String bearerToken = request.getHeader(HttpHeaders.AUTHORIZATION);
 
-		if (StringUtils.isNotBlank(bearerToken) && bearerToken.startsWith(BEARER_PREFIX)) {
+        if (StringUtils.isNotBlank(bearerToken) && bearerToken.startsWith(BEARER_PREFIX)) {
             return bearerToken.substring(BEARER_PREFIX.length());
         }
 
@@ -120,26 +127,26 @@ public class JwtAuthorizationFilter extends OncePerRequestFilter {
      */
     private boolean processToken(String token, HttpServletResponse response) throws IOException {
         try {
-			// Validate token
-			if (!tokenProvider.validateToken(token)) {
-				sendErrorResponse(response, "Invalid token", HttpStatus.UNAUTHORIZED);
-				return false;
+            // Validate token
+            if (!tokenProvider.validateToken(token)) {
+                sendErrorResponse(response, "Invalid token", HttpStatus.UNAUTHORIZED);
+                return false;
             }
 
-			// Extract username and set authentication
-			final String username = tokenProvider.getUsernameFromToken(token);
+            // Extract username and set authentication
+            final String username = tokenProvider.getUsernameFromToken(token);
 
-			// Load user details
-			final UserDetails userDetails = userDetailsService.loadUserByUsername(username);
+            // Load user details
+            final UserDetails userDetails = userDetailsService.loadUserByUsername(username);
 
-			// Create authentication token with authorities
-			final UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(userDetails,
-					null, userDetails.getAuthorities());
+            // Create authentication token with authorities
+            final UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(userDetails,
+                    null, userDetails.getAuthorities());
 
-			// Set authentication in security context
-			SecurityContextHolder.getContext().setAuthentication(authToken);
-			log.debug("Set authentication for user: {}", username);
-			return true;
+            // Set authentication in security context
+            SecurityContextHolder.getContext().setAuthentication(authToken);
+            log.debug("Set authentication for user: {}", username);
+            return true;
 
         } catch (final ExpiredJwtException e) {
             log.warn("JWT token expired: {}", e.getMessage());
@@ -169,13 +176,13 @@ public class JwtAuthorizationFilter extends OncePerRequestFilter {
 
         // Create error response
         final ApiError errorResponse = ApiError
-            .builder()
-            .timestamp(LocalDateTime.now())
-            .status(status.value())
-            .error(status.getReasonPhrase())
-            .message("JWT authentication failed: " + errorMessage)
-            .path("") // Path not available in filter
-            .build();
+                .builder()
+                .timestamp(LocalDateTime.now())
+                .status(status.value())
+                .error(status.getReasonPhrase())
+                .message("JWT authentication failed: " + errorMessage)
+                .path("") // Path not available in filter
+                .build();
 
         // Write error response
         response.setStatus(status.value());
@@ -190,7 +197,7 @@ public class JwtAuthorizationFilter extends OncePerRequestFilter {
      * @return true if the request should be skipped
      */
     @Override
-	protected boolean shouldNotFilter(@NonNull HttpServletRequest request) {
+    protected boolean shouldNotFilter(@NonNull HttpServletRequest request) {
         return publicPaths.matches(request);
     }
 }

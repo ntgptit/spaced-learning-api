@@ -43,26 +43,31 @@ public class SecurityConfig {
     SecurityFilterChain securityFilterChain(HttpSecurity http, AuthenticationConfiguration authConfig)
             throws Exception {
 
-        new JwtAuthenticationFilter(
+        // Tạo bean JwtAuthenticationFilter
+        final JwtAuthenticationFilter jwtAuthenticationFilter = new JwtAuthenticationFilter(
                 authenticationManager(authConfig),
                 tokenProvider, objectMapper);
+        jwtAuthenticationFilter.setFilterProcessesUrl("/api/v1/auth/login");
 
         final JwtAuthorizationFilter jwtAuthorizationFilter = new JwtAuthorizationFilter(tokenProvider,
                 userDetailsService, objectMapper);
 
-        http.csrf(AbstractHttpConfigurer::disable).cors(cors -> cors.configurationSource(corsConfigurationSource()))
+        http.csrf(AbstractHttpConfigurer::disable)
+                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .exceptionHandling(exceptionHandling -> exceptionHandling.authenticationEntryPoint(unauthorizedHandler))
                 .sessionManagement(
                         sessionManagement -> sessionManagement.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(authorize -> authorize
                         // Public endpoints
                         .requestMatchers("/api/v1/auth/**").permitAll()
-                        // Swagger UI v3 (OpenAPI) - Allow all Swagger UI resources
+                        // Root path for health check
+                        .requestMatchers("/").permitAll()
+                        // Swagger UI v3 (OpenAPI)
                         .requestMatchers("/swagger-ui/**", "/swagger-ui.html").permitAll()
                         .requestMatchers("/v3/api-docs/**", "/swagger-resources/**").permitAll()
                         .requestMatchers("/webjars/**").permitAll()
                         // Actuator health endpoint
-                        .requestMatchers("/actuator/health", "/health", "/info").permitAll()
+                        .requestMatchers("/actuator/health", "/actuator/**", "/health", "/info").permitAll()
                         // Error endpoint
                         .requestMatchers("/error").permitAll()
                         // Admin endpoints
@@ -70,9 +75,9 @@ public class SecurityConfig {
                         // All other endpoints require authentication
                         .anyRequest().authenticated());
 
-        // Add the filters
+        // Thêm các filter vào đúng vị trí
         http.addFilterBefore(jwtAuthorizationFilter, UsernamePasswordAuthenticationFilter.class);
-//		http.addFilterAt(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+        http.addFilterAt(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }
