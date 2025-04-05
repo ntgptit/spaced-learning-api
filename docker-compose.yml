@@ -1,0 +1,54 @@
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: spaced-learning-postgres
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: abcd1234
+      POSTGRES_DB: spaced_learning
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-scripts:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - spaced-learning-network
+
+  # Spring Boot API Application
+  api:
+    build: .
+    container_name: spaced-learning-api
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+    environment:
+      - SPRING_PROFILES_ACTIVE=prod
+      - JDBC_DATABASE_URL=jdbc:postgresql://postgres:5432/spaced_learning
+      - JDBC_DATABASE_USERNAME=postgres
+      - JDBC_DATABASE_PASSWORD=abcd1234
+      - JWT_SECRET=very_long_and_secure_jwt_secret_key_used_for_signing_tokens_in_production
+      - JWT_EXPIRATION=86400000
+      - JWT_REFRESH_EXPIRATION=604800000
+      # Override Hibernate ddl-auto setting for first run
+      - SPRING_JPA_HIBERNATE_DDL_AUTO=update
+    networks:
+      - spaced-learning-network
+
+volumes:
+  postgres_data:
+    name: spaced-learning-postgres-data
+
+networks:
+  spaced-learning-network:
+    name: spaced-learning-network
+    driver: bridge

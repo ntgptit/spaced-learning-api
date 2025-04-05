@@ -1,0 +1,61 @@
+# Maven
+target/
+!target/*.jar
+.mvn/wrapper/maven-wrapper.jar
+!**/src/main/**/target/
+!**/src/test/**/target/
+
+# Gradle
+build/
+.gradle/
+gradle/
+gradlew
+gradlew.bat
+
+# IDE files
+.idea/
+*.iml
+*.iws
+*.ipr
+.project
+.classpath
+.settings/
+.vscode/
+*.sublime-workspace
+.factorypath
+
+# Logs
+logs/
+*.log
+log/
+
+# OS specific files
+.DS_Store
+Thumbs.db
+
+# Docker files
+.dockerignore
+docker-compose*.yml
+!docker-compose.yml
+Dockerfile*
+!Dockerfile
+
+# Git
+.git/
+.gitignore
+
+# Documents
+README.md
+LICENSE
+*.md
+!README.md
+
+# Node (if using frontend)
+node_modules/
+npm-debug.log
+yarn-error.log
+package-lock.json
+yarn.lock
+
+# Test files
+**/src/test/
