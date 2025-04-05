@@ -33,31 +33,54 @@ import lombok.extern.slf4j.Slf4j;
 
 /**
  * Global exception handler for the application. Centralizes exception handling
- * for all controllers.
+ * for all controllers. Includes improved logging for exception origins.
  */
 @RestControllerAdvice
-@Slf4j
+@Slf4j // Sử dụng SLF4j để ghi log
 @RequiredArgsConstructor
 public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
-	private final MessageSource messageSource;
+    private final MessageSource messageSource;
 
-	/**
-	 * Extract path from WebRequest
-	 *
-	 * @param request WebRequest
-	 * @return Path string
-	 */
-	private String extractPath(final WebRequest request) {
-		return request.getDescription(false).replace("uri=", "");
-	}
+    /**
+     * Extract path from WebRequest
+     *
+     * @param request WebRequest
+     * @return Path string
+     */
+    private String extractPath(final WebRequest request) {
+        return request.getDescription(false).replace("uri=", "");
+    }
 
-	/**
+    /**
+     * Helper method to get the origin (class, method, line) of the exception.
+     * Note: This gets the top of the stack trace, which is usually where the
+     * exception was thrown or last caught before reaching the handler.
+     *
+     * @param ex The exception
+     * @return A string representation of the origin, or "Unknown Origin".
+     */
+    private String getOriginatingClassName(Throwable ex) {
+        if (ex != null && ex.getStackTrace() != null && ex.getStackTrace().length > 0) {
+            final StackTraceElement element = ex.getStackTrace()[0];
+            // Trả về định dạng Class.method(FileName:LineNumber)
+            return String.format("%s.%s(%s:%d)",
+                    element.getClassName(),
+                    element.getMethodName(),
+                    element.getFileName(),
+                    element.getLineNumber());
+        }
+        return "Unknown Origin";
+    }
+
+    /**
      * Handle access denied exceptions
      */
     @ExceptionHandler(AccessDeniedException.class)
-    public ResponseEntity<ApiError> handleAccessDeniedException(final AccessDeniedException ex, final WebRequest request) {
-        log.error("Access denied: {}", ex.getMessage());
+    public ResponseEntity<ApiError> handleAccessDeniedException(final AccessDeniedException ex,
+            final WebRequest request) {
+        // Log lỗi với thông tin origin và đầy đủ stack trace (do truyền 'ex' vào cuối)
+        log.error("Access denied - Origin: [{}]", getOriginatingClassName(ex), ex);
 
         final String message = messageSource.getMessage(
                 "error.auth.accessDenied",
@@ -76,12 +99,13 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         return new ResponseEntity<>(apiError, HttpStatus.FORBIDDEN);
     }
 
-	/**
+    /**
      * Fallback for all other exceptions
      */
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiError> handleAll(final Exception ex, final WebRequest request) {
-        log.error("Unhandled exception", ex);
+        // Log lỗi với thông tin origin và đầy đủ stack trace
+        log.error("Unhandled exception - Origin: [{}]", getOriginatingClassName(ex), ex);
 
         final String message = messageSource.getMessage(
                 "error.server.internal",
@@ -100,17 +124,18 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         return new ResponseEntity<>(apiError, HttpStatus.INTERNAL_SERVER_ERROR);
     }
 
-	/**
+    /**
      * Handle authentication exceptions
      */
     @ExceptionHandler({ AuthenticationException.class, BadCredentialsException.class })
     public ResponseEntity<ApiError> handleAuthenticationException(final Exception ex, final WebRequest request) {
-        log.error("Authentication error: {}", ex.getMessage());
+        // Log lỗi với thông tin origin và đầy đủ stack trace
+        log.error("Authentication error - Origin: [{}]", getOriginatingClassName(ex), ex);
 
         final String message = messageSource.getMessage(
                 "error.auth.invalidCredentials",
                 null,
-                "Authentication failed: " + ex.getMessage(),
+                "Authentication failed: " + ex.getMessage(), // Có thể giữ lại message gốc ở đây nếu muốn
                 LocaleContextHolder.getLocale());
 
         final ApiError apiError = ApiError.builder()
@@ -124,7 +149,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         return new ResponseEntity<>(apiError, HttpStatus.UNAUTHORIZED);
     }
 
-	/**
+    /**
      * Handle constraint violation exceptions (validation errors)
      */
     @ExceptionHandler(ConstraintViolationException.class)
@@ -132,7 +157,8 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
             final ConstraintViolationException ex,
             final WebRequest request) {
 
-        log.error("Constraint violation: {}", ex.getMessage());
+        // Log lỗi với thông tin origin và đầy đủ stack trace
+        log.error("Constraint violation - Origin: [{}]", getOriginatingClassName(ex), ex);
 
         final Map<String, String> errors = ex.getConstraintViolations().stream()
                 .collect(Collectors.toMap(
@@ -158,7 +184,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         return new ResponseEntity<>(apiError, HttpStatus.BAD_REQUEST);
     }
 
-	/**
+    /**
      * Handle data integrity violations (e.g., unique constraint violations)
      */
     @ExceptionHandler(DataIntegrityViolationException.class)
@@ -166,7 +192,8 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
             final DataIntegrityViolationException ex,
             final WebRequest request) {
 
-        log.error("Data integrity violation: {}", ex.getMessage());
+        // Log lỗi với thông tin origin và đầy đủ stack trace
+        log.error("Data integrity violation - Origin: [{}]", getOriginatingClassName(ex), ex);
 
         final String message = messageSource.getMessage(
                 "error.database.constraint",
@@ -185,7 +212,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         return new ResponseEntity<>(apiError, HttpStatus.CONFLICT);
     }
 
-	/**
+    /**
      * Handle entity not found exceptions
      */
     @ExceptionHandler(EntityNotFoundException.class)
@@ -193,20 +220,21 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
             final EntityNotFoundException ex,
             final WebRequest request) {
 
-        log.error("Entity not found: {}", ex.getMessage());
+        // Log lỗi với thông tin origin và đầy đủ stack trace
+        log.error("Entity not found - Origin: [{}]", getOriginatingClassName(ex), ex);
 
         final ApiError apiError = ApiError.builder()
                 .timestamp(LocalDateTime.now())
                 .status(HttpStatus.NOT_FOUND.value())
                 .error(HttpStatus.NOT_FOUND.getReasonPhrase())
-                .message(ex.getMessage())
+                .message(ex.getMessage()) // Giữ lại message cụ thể của exception này
                 .path(extractPath(request))
                 .build();
 
         return new ResponseEntity<>(apiError, HttpStatus.NOT_FOUND);
     }
 
-	/**
+    /**
      * Handle validation exceptions from @Valid
      */
     @Override
@@ -216,14 +244,15 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
             @NonNull final HttpStatusCode status,
             @NonNull final WebRequest request) {
 
-        log.error("Validation error: {}", ex.getMessage());
+        // Log lỗi với thông tin origin và đầy đủ stack trace
+        log.error("Method argument validation error - Origin: [{}]", getOriginatingClassName(ex), ex);
 
         // Group field errors by field name
         final Map<String, String> errors = ex.getBindingResult().getFieldErrors().stream()
                 .collect(Collectors.toMap(
                         FieldError::getField,
-                        fieldError -> fieldError.getDefaultMessage() == null ?
-                                "Invalid value" : fieldError.getDefaultMessage(),
+                        fieldError -> fieldError.getDefaultMessage() == null ? "Invalid value"
+                                : fieldError.getDefaultMessage(),
                         // If multiple errors for same field, join them
                         (error1, error2) -> error1 + "; " + error2));
 
@@ -245,26 +274,26 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         return new ResponseEntity<>(apiError, HttpStatus.BAD_REQUEST);
     }
 
-	/**
+    /**
      * Handle method argument type mismatch
      */
-	@SuppressWarnings("null")
-	@ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    @SuppressWarnings("null") // Giữ lại annotation này nếu cần thiết
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
     public ResponseEntity<ApiError> handleMethodArgumentTypeMismatch(
             final MethodArgumentTypeMismatchException ex,
             final WebRequest request) {
 
-        log.error("Type mismatch: {}", ex.getMessage());
+        // Log lỗi với thông tin origin và đầy đủ stack trace
+        log.error("Method argument type mismatch - Origin: [{}]", getOriginatingClassName(ex), ex);
 
         final Map<String, String> errors = new HashMap<>();
-        final String requiredType = ex.getRequiredType() != null ?
-                ex.getRequiredType().getSimpleName() : "unknown";
+        final String requiredType = ex.getRequiredType() != null ? ex.getRequiredType().getSimpleName() : "unknown";
 
         errors.put(ex.getName(), "Should be of type " + requiredType);
 
         final String message = messageSource.getMessage(
                 "error.validation.typeMismatch",
-                new Object[]{ex.getName(), requiredType},
+                new Object[] { ex.getName(), requiredType },
                 "Type mismatch for parameter",
                 LocaleContextHolder.getLocale());
 
@@ -280,7 +309,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         return new ResponseEntity<>(apiError, HttpStatus.BAD_REQUEST);
     }
 
-	/**
+    /**
      * Handle missing request parameters
      */
     @Override
@@ -290,14 +319,15 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
             @NonNull final HttpStatusCode status,
             @NonNull final WebRequest request) {
 
-        log.error("Missing parameter: {}", ex.getMessage());
+        // Log lỗi với thông tin origin và đầy đủ stack trace
+        log.error("Missing servlet request parameter - Origin: [{}]", getOriginatingClassName(ex), ex);
 
         final Map<String, String> errors = new HashMap<>();
         errors.put(ex.getParameterName(), "Parameter is missing");
 
         final String message = messageSource.getMessage(
                 "error.validation.missingParameter",
-                new Object[]{ex.getParameterName()},
+                new Object[] { ex.getParameterName() },
                 "Required request parameter is missing",
                 LocaleContextHolder.getLocale());
 
@@ -313,7 +343,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         return new ResponseEntity<>(apiError, HttpStatus.BAD_REQUEST);
     }
 
-	/**
+    /**
      * Handle custom SpacedLearning exceptions
      */
     @ExceptionHandler(SpacedLearningException.class)
@@ -321,13 +351,14 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
             final SpacedLearningException ex,
             final WebRequest request) {
 
-        log.error("Business exception: {}", ex.getMessage());
+        // Log lỗi với thông tin origin và đầy đủ stack trace
+        log.error("SpacedLearningException (Business exception) - Origin: [{}]", getOriginatingClassName(ex), ex);
 
         final ApiError apiError = ApiError.builder()
                 .timestamp(LocalDateTime.now())
                 .status(ex.getStatus().value())
                 .error(ex.getStatus().getReasonPhrase())
-                .message(ex.getMessage())
+                .message(ex.getMessage()) // Giữ lại message cụ thể của exception này
                 .path(extractPath(request))
                 .build();
 

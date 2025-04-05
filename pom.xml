@@ -6,7 +6,7 @@
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
-        <version>3.4.4</version>
+        <version>3.3.3</version>
         <relativePath /> <!-- lookup parent from repository -->
     </parent>
     <groupId>com.spacedlearning</groupId>
@@ -30,7 +30,7 @@
     
     <properties>
         <java.version>17</java.version>
-        <spring-boot.version>3.4.4</spring-boot.version>
+        <spring-boot.version>3.3.3</spring-boot.version>
         <lombok.version>1.18.30</lombok.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <jwt.version>0.11.5</jwt.version>
@@ -129,7 +129,7 @@
         <dependency>
             <groupId>org.apache.commons</groupId>
             <artifactId>commons-lang3</artifactId>
-            <version>${apache.commons.lang3.version}</version>
+            <version>${apache.commons.lang3.version}</version><!--$NO-MVN-MAN-VER$-->
         </dependency>
         <dependency>
             <groupId>org.apache.commons</groupId>
