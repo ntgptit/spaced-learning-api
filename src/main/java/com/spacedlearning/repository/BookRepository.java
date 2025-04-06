@@ -23,72 +23,74 @@ import com.spacedlearning.entity.enums.DifficultyLevel;
 @Repository
 public interface BookRepository extends JpaRepository<Book, UUID> {
 
-	/**
-	 * Find all categories from books
-	 * 
-	 * @return List of unique categories
-	 */
-	@Query("SELECT DISTINCT b.category FROM Book b WHERE b.category IS NOT NULL ORDER BY b.category")
-	List<String> findAllCategories();
+    Optional<Book> findByName(String name);
 
-	/**
-	 * Find published books with published status and optional filtering
-	 * 
-	 * @param status          Book status (optional)
-	 * @param difficultyLevel Difficulty level (optional)
-	 * @param category        Category (optional)
-	 * @param pageable        Pagination information
-	 * @return Page of books
-	 */
-	@Query("SELECT b FROM Book b WHERE " + "(:status IS NULL OR b.status = :status) "
-			+ "AND (:difficultyLevel IS NULL OR b.difficultyLevel = :difficultyLevel) "
-			+ "AND (:category IS NULL OR b.category = :category)")
-	Page<Book> findBooksByFilters(@Param("status") BookStatus status,
-			@Param("difficultyLevel") DifficultyLevel difficultyLevel, @Param("category") String category,
-			Pageable pageable);
+    /**
+     * Find all categories from books
+     *
+     * @return List of unique categories
+     */
+    @Query("SELECT DISTINCT b.category FROM Book b WHERE b.category IS NOT NULL ORDER BY b.category")
+    List<String> findAllCategories();
 
-	/**
-	 * Find books by category
-	 * 
-	 * @param category Category
-	 * @param pageable Pagination information
-	 * @return Page of books
-	 */
-	Page<Book> findByCategory(String category, Pageable pageable);
+    /**
+     * Find published books with published status and optional filtering
+     *
+     * @param status          Book status (optional)
+     * @param difficultyLevel Difficulty level (optional)
+     * @param category        Category (optional)
+     * @param pageable        Pagination information
+     * @return Page of books
+     */
+    @Query("SELECT b FROM Book b WHERE " + "(:status IS NULL OR b.status = :status) "
+            + "AND (:difficultyLevel IS NULL OR b.difficultyLevel = :difficultyLevel) "
+            + "AND (:category IS NULL OR b.category = :category)")
+    Page<Book> findBooksByFilters(@Param("status") BookStatus status,
+            @Param("difficultyLevel") DifficultyLevel difficultyLevel, @Param("category") String category,
+            Pageable pageable);
 
-	/**
-	 * Find books by difficulty level
-	 * 
-	 * @param difficultyLevel Difficulty level
-	 * @param pageable        Pagination information
-	 * @return Page of books
-	 */
-	Page<Book> findByDifficultyLevel(DifficultyLevel difficultyLevel, Pageable pageable);
+    /**
+     * Find books by category
+     *
+     * @param category Category
+     * @param pageable Pagination information
+     * @return Page of books
+     */
+    Page<Book> findByCategory(String category, Pageable pageable);
 
-	/**
-	 * Find books by name containing the search term
-	 * 
-	 * @param searchTerm Search term
-	 * @param pageable   Pagination information
-	 * @return Page of books
-	 */
-	Page<Book> findByNameContainingIgnoreCase(String searchTerm, Pageable pageable);
+    /**
+     * Find books by difficulty level
+     *
+     * @param difficultyLevel Difficulty level
+     * @param pageable        Pagination information
+     * @return Page of books
+     */
+    Page<Book> findByDifficultyLevel(DifficultyLevel difficultyLevel, Pageable pageable);
 
-	/**
-	 * Find books by status
-	 * 
-	 * @param status   Book status
-	 * @param pageable Pagination information
-	 * @return Page of books
-	 */
-	Page<Book> findByStatus(BookStatus status, Pageable pageable);
+    /**
+     * Find books by name containing the search term
+     *
+     * @param searchTerm Search term
+     * @param pageable   Pagination information
+     * @return Page of books
+     */
+    Page<Book> findByNameContainingIgnoreCase(String searchTerm, Pageable pageable);
 
-	/**
-	 * Find book by ID with modules eagerly loaded
-	 * 
-	 * @param id Book ID
-	 * @return Optional containing book with modules
-	 */
-	@EntityGraph(attributePaths = { "modules" })
-	Optional<Book> findWithModulesById(UUID id);
+    /**
+     * Find books by status
+     *
+     * @param status   Book status
+     * @param pageable Pagination information
+     * @return Page of books
+     */
+    Page<Book> findByStatus(BookStatus status, Pageable pageable);
+
+    /**
+     * Find book by ID with modules eagerly loaded
+     *
+     * @param id Book ID
+     * @return Optional containing book with modules
+     */
+    @EntityGraph(attributePaths = { "modules" })
+    Optional<Book> findWithModulesById(UUID id);
 }
