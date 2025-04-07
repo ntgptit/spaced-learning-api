@@ -106,8 +106,9 @@ public interface ModuleProgressRepository extends JpaRepository<ModuleProgress, 
      * @param pageable  Pagination information
      * @return Page of progress records
      */
-    @Query("SELECT mp FROM ModuleProgress mp WHERE mp.user.id = :userId " + "AND mp.nextStudyDate <= :studyDate "
-            + "ORDER BY mp.nextStudyDate ASC")
+    @Query("SELECT mp FROM ModuleProgress mp WHERE mp.user.id = :userId " +
+            "AND mp.nextStudyDate <= :studyDate " +
+            "ORDER BY mp.nextStudyDate ASC")
     Page<ModuleProgress> findDueForStudy(@Param("userId") UUID userId, @Param("studyDate") LocalDate studyDate,
             Pageable pageable);
 

@@ -192,4 +192,5 @@ public class ModuleProgressController {
         final ModuleProgressDetailResponse updatedProgress = progressService.update(id, request);
         return ResponseEntity.ok(DataResponse.of(updatedProgress));
     }
+
 }
