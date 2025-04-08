@@ -48,8 +48,8 @@ public class DashboardStatsServiceImpl implements DashboardStatsService {
         verifyUserExists(userId);
 
         final Optional<UserStatistics> statsOpt = statsRepository.findByUserId(userId);
-        final UserLearningStatsDTO.UserLearningStatsDTOBuilder builder = createBasicStatsBuilder(userId, statsOpt);
-        return calculateDynamicStats(userId, builder);
+        final UserLearningStatsDTO.UserLearningStatsDTOBuilder builder = createBasicStatsBuilder(statsOpt);
+        return calculateDynamicStats(builder);
     }
 
     private void validateUserId(UUID userId) {
@@ -61,10 +61,10 @@ public class DashboardStatsServiceImpl implements DashboardStatsService {
                 .resourceNotFound(messageSource, RESOURCE_USER, userId));
     }
 
-    private UserLearningStatsDTO.UserLearningStatsDTOBuilder createBasicStatsBuilder(UUID userId,
+    private UserLearningStatsDTO.UserLearningStatsDTOBuilder createBasicStatsBuilder(
             Optional<UserStatistics> statsOpt) {
         return statsOpt.map(this::buildStatsFromExisting)
-                .orElseGet(() -> buildStatsFromScratch(userId));
+                .orElseGet(this::buildStatsFromScratch);
     }
 
     private UserLearningStatsDTO.UserLearningStatsDTOBuilder buildStatsFromExisting(
@@ -77,9 +77,9 @@ public class DashboardStatsServiceImpl implements DashboardStatsService {
                 .lastUpdated(stats.getLastStatisticsUpdate());
     }
 
-    private UserLearningStatsDTO.UserLearningStatsDTOBuilder buildStatsFromScratch(UUID userId) {
-        final int totalWords = moduleRepository.getTotalWordCountForUser(userId);
-        final int learnedWords = moduleRepository.getLearnedWordCountForUser(userId);
+    private UserLearningStatsDTO.UserLearningStatsDTOBuilder buildStatsFromScratch() {
+        final int totalWords = moduleRepository.getTotalWordCount();
+        final int learnedWords = moduleRepository.getLearnedWordCount();
         final BigDecimal vocabularyCompletionRate = calculateVocabularyCompletionRate(totalWords, learnedWords);
 
         return UserLearningStatsDTO.builder()
@@ -95,14 +95,13 @@ public class DashboardStatsServiceImpl implements DashboardStatsService {
                 .totalInProgressModules(0);
     }
 
-    private UserLearningStatsDTO calculateDynamicStats(UUID userId,
-            UserLearningStatsDTO.UserLearningStatsDTOBuilder builder) {
+    private UserLearningStatsDTO calculateDynamicStats(UserLearningStatsDTO.UserLearningStatsDTOBuilder builder) {
         final int totalModules = moduleRepository.countTotalModules();
         final Map<String, Integer> cycleStats = calculateCycleStats();
-        final StatsPeriod dueStats = calculateDueStats(userId);
-        final StatsPeriod wordsDueStats = calculateWordsDueStats(userId);
-        final StatsPeriod completedStats = calculateCompletedStats(userId);
-        final StatsPeriod wordsCompletedStats = calculateWordsCompletedStats(userId);
+        final StatsPeriod dueStats = calculateDueStats();
+        final StatsPeriod wordsDueStats = calculateWordsDueStats();
+        final StatsPeriod completedStats = calculateCompletedStats();
+        final StatsPeriod wordsCompletedStats = calculateWordsCompletedStats();
         final VocabularyStats vocabularyStats = calculateVocabularyStats();
 
         return builder.totalModules(totalModules)
@@ -143,26 +142,26 @@ public class DashboardStatsServiceImpl implements DashboardStatsService {
         return cycleCounts;
     }
 
-    private StatsPeriod calculateDueStats(UUID userId) {
-        return new StatsPeriod(moduleRepository.countDueTodayForUser(userId),
-                moduleRepository.countDueThisWeekForUser(userId),
-                moduleRepository.countDueThisMonthForUser(userId));
+    private StatsPeriod calculateDueStats() {
+        return new StatsPeriod(moduleRepository.countDueToday(),
+                moduleRepository.countDueThisWeek(),
+                moduleRepository.countDueThisMonth());
     }
 
-    private StatsPeriod calculateWordsDueStats(UUID userId) {
-        return new StatsPeriod(moduleRepository.countWordsDueTodayForUser(userId),
-                moduleRepository.countWordsDueThisWeekForUser(userId),
-                moduleRepository.countWordsDueThisMonthForUser(userId));
+    private StatsPeriod calculateWordsDueStats() {
+        return new StatsPeriod(moduleRepository.countWordsDueToday(),
+                moduleRepository.countWordsDueThisWeek(),
+                moduleRepository.countWordsDueThisMonth());
     }
 
-    private StatsPeriod calculateCompletedStats(UUID userId) {
-        return new StatsPeriod(moduleRepository.countCompletedTodayForUser(userId),
-                calculateCompletedThisWeek(userId), calculateCompletedThisMonth(userId));
+    private StatsPeriod calculateCompletedStats() {
+        return new StatsPeriod(moduleRepository.countCompletedToday(),
+                calculateCompletedThisWeek(), calculateWordsCompletedThisMonth());
     }
 
-    private StatsPeriod calculateWordsCompletedStats(UUID userId) {
-        return new StatsPeriod(moduleRepository.countWordsCompletedTodayForUser(userId),
-                calculateWordsCompletedThisWeek(userId), calculateWordsCompletedThisMonth(userId));
+    private StatsPeriod calculateWordsCompletedStats() {
+        return new StatsPeriod(moduleRepository.countWordsCompletedToday(),
+                calculateWordsCompletedThisWeek(), calculateWordsCompletedThisMonth());
     }
 
     private VocabularyStats calculateVocabularyStats() {
@@ -183,30 +182,23 @@ public class DashboardStatsServiceImpl implements DashboardStatsService {
                 .multiply(ONE_HUNDRED);
     }
 
-    private int calculateCompletedThisWeek(UUID userId) {
+    private int calculateCompletedThisWeek() {
         final LocalDate today = LocalDate.now();
-        final int completedToday = moduleRepository.countCompletedTodayForUser(userId);
+        final int completedToday = moduleRepository.countCompletedToday();
         final int daysPastInWeek = today.getDayOfWeek().getValue();
         return Math.min(completedToday * daysPastInWeek, completedToday * 5);
     }
 
-    private int calculateCompletedThisMonth(UUID userId) {
+    private int calculateWordsCompletedThisWeek() {
         final LocalDate today = LocalDate.now();
-        final int completedToday = moduleRepository.countCompletedTodayForUser(userId);
-        final int dayOfMonth = today.getDayOfMonth();
-        return Math.min(completedToday * dayOfMonth, completedToday * 20);
-    }
-
-    private int calculateWordsCompletedThisWeek(UUID userId) {
-        final LocalDate today = LocalDate.now();
-        final int wordsCompletedToday = moduleRepository.countWordsCompletedTodayForUser(userId);
+        final int wordsCompletedToday = moduleRepository.countWordsCompletedToday();
         final int daysPastInWeek = today.getDayOfWeek().getValue();
         return Math.min(wordsCompletedToday * daysPastInWeek, wordsCompletedToday * 5);
     }
 
-    private int calculateWordsCompletedThisMonth(UUID userId) {
+    private int calculateWordsCompletedThisMonth() {
         final LocalDate today = LocalDate.now();
-        final int wordsCompletedToday = moduleRepository.countWordsCompletedTodayForUser(userId);
+        final int wordsCompletedToday = moduleRepository.countWordsCompletedToday();
         final int dayOfMonth = today.getDayOfMonth();
         return Math.min(wordsCompletedToday * dayOfMonth, wordsCompletedToday * 20);
     }

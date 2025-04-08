@@ -83,54 +83,6 @@ public interface ModuleRepository extends JpaRepository<Module, UUID> {
     Optional<Module> findWithProgressById(UUID id);
 
     /**
-     * Count completed modules for user
-     *
-     * @param userId User ID
-     * @return Number of completed modules
-     */
-    @Query(value = """
-            SELECT COUNT(DISTINCT m.id) FROM spaced_learning.modules m
-            JOIN spaced_learning.module_progress mp ON m.id = mp.module_id
-            WHERE mp.user_id = :userId
-            AND mp.percent_complete = 100
-            AND m.deleted_at IS NULL
-            AND mp.deleted_at IS NULL
-            """, nativeQuery = true)
-    int countCompletedModulesForUser(@Param("userId") UUID userId);
-
-    /**
-     * Count in-progress modules for user
-     *
-     * @param userId User ID
-     * @return Number of in-progress modules
-     */
-    @Query(value = """
-            SELECT COUNT(DISTINCT m.id) FROM spaced_learning.modules m
-            JOIN spaced_learning.module_progress mp ON m.id = mp.module_id
-            WHERE mp.user_id = :userId
-            AND mp.percent_complete > 0
-            AND mp.percent_complete < 100
-            AND m.deleted_at IS NULL
-            AND mp.deleted_at IS NULL
-            """, nativeQuery = true)
-    int countInProgressModulesForUser(@Param("userId") UUID userId);
-
-    /**
-     * Count total modules for user
-     *
-     * @param userId User ID
-     * @return Total number of modules
-     */
-    @Query(value = """
-            SELECT COUNT(DISTINCT m.id) FROM spaced_learning.modules m
-            JOIN spaced_learning.module_progress mp ON m.id = mp.module_id
-            WHERE mp.user_id = :userId
-            AND m.deleted_at IS NULL
-            AND mp.deleted_at IS NULL
-            """, nativeQuery = true)
-    int countTotalModulesForUser(@Param("userId") UUID userId);
-
-    /**
      * Count total modules
      *
      * @param userId User ID
@@ -158,11 +110,11 @@ public interface ModuleRepository extends JpaRepository<Module, UUID> {
     @Query(value = """
             SELECT COALESCE(SUM(m.word_count), 0) FROM spaced_learning.modules m
             JOIN spaced_learning.module_progress mp ON m.id = mp.module_id
-            WHERE mp.user_id = :userId
-            AND m.deleted_at IS NULL
+            WHERE
+            m.deleted_at IS NULL
             AND mp.deleted_at IS NULL
             """, nativeQuery = true)
-    int getTotalWordCountForUser(@Param("userId") UUID userId);
+    int getTotalWordCount();
 
     /**
      * Get total learned word count for a user based on module progress
@@ -177,11 +129,11 @@ public interface ModuleRepository extends JpaRepository<Module, UUID> {
             END), 0)
             FROM spaced_learning.modules m
             JOIN spaced_learning.module_progress mp ON m.id = mp.module_id
-            WHERE mp.user_id = :userId
-            AND m.deleted_at IS NULL
+            WHERE
+                m.deleted_at IS NULL
             AND mp.deleted_at IS NULL
             """, nativeQuery = true)
-    int getLearnedWordCountForUser(@Param("userId") UUID userId);
+    int getLearnedWordCount();
 
     @Query(value = """
                 WITH cycle_types AS (
@@ -232,17 +184,13 @@ public interface ModuleRepository extends JpaRepository<Module, UUID> {
             JOIN
             spaced_learning.books b ON
                 m.book_id = b.id
-            JOIN
-            spaced_learning.users u ON
-                u.id = mp.user_id
             WHERE
                 r.review_date <= CURRENT_DATE
                 AND mp.deleted_at IS NULL
                 AND m.deleted_at IS NULL
                 AND b.deleted_at IS NULL
-                AND mp.user_id = :userId
             """, nativeQuery = true)
-    int countDueTodayForUser(@Param("userId") UUID userId);
+    int countDueToday();
 
     @Query(value = """
             SELECT
@@ -258,17 +206,13 @@ public interface ModuleRepository extends JpaRepository<Module, UUID> {
             JOIN
             spaced_learning.books b ON
                 m.book_id = b.id
-            JOIN
-            spaced_learning.users u ON
-                u.id = mp.user_id
             WHERE
                 r.review_date <= DATE_TRUNC('week', CURRENT_DATE) + INTERVAL '6 days'
                 AND mp.deleted_at IS NULL
                 AND m.deleted_at IS NULL
                 AND b.deleted_at IS NULL
-                AND mp.user_id = :userId
             """, nativeQuery = true)
-    int countDueThisWeekForUser(@Param("userId") UUID userId);
+    int countDueThisWeek();
 
     @Query(value = """
             SELECT
@@ -284,17 +228,13 @@ public interface ModuleRepository extends JpaRepository<Module, UUID> {
             JOIN
             spaced_learning.books b ON
                 m.book_id = b.id
-            JOIN
-            spaced_learning.users u ON
-                u.id = mp.user_id
             WHERE
                 r.review_date <= DATE_TRUNC('month', CURRENT_DATE) + INTERVAL '1 month' - INTERVAL '1 day'
                 AND mp.deleted_at IS NULL
                 AND m.deleted_at IS NULL
                 AND b.deleted_at IS NULL
-                AND mp.user_id = :userId
             """, nativeQuery = true)
-    int countDueThisMonthForUser(@Param("userId") UUID userId);
+    int countDueThisMonth();
 
     /**
      * Count total words in modules due today for a user
@@ -321,9 +261,8 @@ public interface ModuleRepository extends JpaRepository<Module, UUID> {
                 AND mp.deleted_at IS NULL
                 AND m.deleted_at IS NULL
                 AND b.deleted_at IS NULL
-                AND mp.user_id = :userId
             """, nativeQuery = true)
-    int countWordsDueTodayForUser(@Param("userId") UUID userId);
+    int countWordsDueToday();
 
     /**
      * Count total words in modules due this week for a user
@@ -347,9 +286,8 @@ public interface ModuleRepository extends JpaRepository<Module, UUID> {
             AND mp.deleted_at IS NULL
             AND m.deleted_at IS NULL
             AND b.deleted_at IS NULL
-            AND mp.user_id = :userId
             """, nativeQuery = true)
-    int countWordsDueThisWeekForUser(@Param("userId") UUID userId);
+    int countWordsDueThisWeek();
 
     /**
      * Count total words in modules due this month for a user
@@ -373,9 +311,8 @@ public interface ModuleRepository extends JpaRepository<Module, UUID> {
             AND mp.deleted_at IS NULL
             AND m.deleted_at IS NULL
             AND b.deleted_at IS NULL
-            AND mp.user_id = :userId
             """, nativeQuery = true)
-    int countWordsDueThisMonthForUser(@Param("userId") UUID userId);
+    int countWordsDueThisMonth();
 
     /**
      * Count repetitions completed today for a user
@@ -400,9 +337,8 @@ public interface ModuleRepository extends JpaRepository<Module, UUID> {
                 AND mp.deleted_at IS NULL
                 AND m.deleted_at IS NULL
                 AND b.deleted_at IS NULL
-                AND mp.user_id = :userId
             """, nativeQuery = true)
-    int countCompletedTodayForUser(@Param("userId") UUID userId);
+    int countCompletedToday();
 
     /**
      * Count total words completed today for a user
@@ -427,9 +363,8 @@ public interface ModuleRepository extends JpaRepository<Module, UUID> {
                 AND mp.deleted_at IS NULL
                 AND m.deleted_at IS NULL
                 AND b.deleted_at IS NULL
-                AND mp.user_id = :userId
             """, nativeQuery = true)
-    int countWordsCompletedTodayForUser(@Param("userId") UUID userId);
+    int countWordsCompletedToday();
 
     @Query(value = """
             SELECT
