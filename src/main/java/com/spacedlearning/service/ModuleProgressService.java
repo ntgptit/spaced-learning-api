@@ -1,4 +1,3 @@
-// File: src/main/java/com/spacedlearning/service/ModuleProgressService.java
 package com.spacedlearning.service;
 
 import java.time.LocalDate;
@@ -19,7 +18,7 @@ public interface ModuleProgressService {
 
     /**
      * Create a new progress record
-     * 
+     *
      * @param request Progress creation request
      * @return Created progress detail response
      */
@@ -27,14 +26,14 @@ public interface ModuleProgressService {
 
     /**
      * Delete a progress record
-     * 
+     *
      * @param id Progress ID
      */
     void delete(UUID id);
 
     /**
      * Find all progress records with pagination
-     * 
+     *
      * @param pageable Pagination information
      * @return Page of progress summaries
      */
@@ -42,7 +41,7 @@ public interface ModuleProgressService {
 
     /**
      * Find progress by ID
-     * 
+     *
      * @param id Progress ID
      * @return Progress detail response
      */
@@ -50,7 +49,7 @@ public interface ModuleProgressService {
 
     /**
      * Find progress by module ID
-     * 
+     *
      * @param moduleId Module ID
      * @param pageable Pagination information
      * @return Page of progress summaries
@@ -58,46 +57,34 @@ public interface ModuleProgressService {
     Page<ModuleProgressSummaryResponse> findByModuleId(UUID moduleId, Pageable pageable);
 
     /**
-     * Find progress by user ID
-     * 
-     * @param userId   User ID
-     * @param pageable Pagination information
-     * @return Page of progress summaries
-     */
-    Page<ModuleProgressSummaryResponse> findByUserId(UUID userId, Pageable pageable);
-
-    /**
-     * Find progress records by user and book
-     * 
-     * @param userId   User ID
+     * Find progress by book ID
+     *
      * @param bookId   Book ID
      * @param pageable Pagination information
      * @return Page of progress summaries
      */
-    Page<ModuleProgressSummaryResponse> findByUserIdAndBookId(UUID userId, UUID bookId, Pageable pageable);
+    Page<ModuleProgressSummaryResponse> findByBookId(UUID bookId, Pageable pageable);
 
     /**
-     * Find progress by user ID and module ID
-     * 
-     * @param userId   User ID
+     * Find progress by module ID
+     *
      * @param moduleId Module ID
      * @return Progress detail response
      */
-    ModuleProgressDetailResponse findByUserIdAndModuleId(UUID userId, UUID moduleId);
+    ModuleProgressDetailResponse findByModuleId(UUID moduleId);
 
     /**
      * Find progress records due for study
-     * 
-     * @param userId    User ID
+     *
      * @param studyDate Date to study on or before
      * @param pageable  Pagination information
      * @return Page of progress summaries
      */
-    Page<ModuleProgressSummaryResponse> findDueForStudy(UUID userId, LocalDate studyDate, Pageable pageable);
+    Page<ModuleProgressSummaryResponse> findDueForStudy(LocalDate studyDate, Pageable pageable);
 
     /**
      * Update a progress record
-     * 
+     *
      * @param id      Progress ID
      * @param request Progress update request
      * @return Updated progress detail response
@@ -105,10 +92,10 @@ public interface ModuleProgressService {
     ModuleProgressDetailResponse update(UUID id, ModuleProgressUpdateRequest request);
 
     /**
-     * Find progress for the current authenticated user and module ID
-     * 
+     * Find progress for a module or create a new one if it doesn't exist
+     *
      * @param moduleId Module ID
-     * @return Progress detail response or null if not found
+     * @return Progress detail response
      */
-    ModuleProgressDetailResponse findProgressForCurrentUserAndModule(UUID moduleId);
+    ModuleProgressDetailResponse findOrCreateProgressForModule(UUID moduleId);
 }

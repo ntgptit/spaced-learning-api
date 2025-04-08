@@ -41,11 +41,6 @@ public class ModuleProgress extends BaseEntity {
     @JoinColumn(name = "module_id", nullable = false)
     private Module module;
 
-    @NotNull
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", nullable = false)
-    private User user;
-
     @Column(name = "first_learning_date")
     private LocalDate firstLearningDate;
 
@@ -90,16 +85,4 @@ public class ModuleProgress extends BaseEntity {
         }
         return removed;
     }
-
-//	/**
-//     * Validate dates to ensure next_study_date is after first_learning_date.
-//     */
-//    @PrePersist
-//    @PreUpdate
-//    public void validateDates() {
-//        if (firstLearningDate != null && nextStudyDate != null &&
-//            nextStudyDate.isBefore(firstLearningDate)) {
-//            throw new IllegalStateException("Next study date must be on or after first learning date");
-//        }
-//    }
 }

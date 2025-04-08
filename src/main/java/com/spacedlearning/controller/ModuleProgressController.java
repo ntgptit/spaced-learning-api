@@ -10,8 +10,6 @@ import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -29,9 +27,6 @@ import com.spacedlearning.dto.progress.ModuleProgressCreateRequest;
 import com.spacedlearning.dto.progress.ModuleProgressDetailResponse;
 import com.spacedlearning.dto.progress.ModuleProgressSummaryResponse;
 import com.spacedlearning.dto.progress.ModuleProgressUpdateRequest;
-import com.spacedlearning.entity.User;
-import com.spacedlearning.exception.SpacedLearningException;
-import com.spacedlearning.repository.UserRepository;
 import com.spacedlearning.service.ModuleProgressService;
 import com.spacedlearning.util.PageUtils;
 
@@ -52,7 +47,6 @@ import lombok.extern.slf4j.Slf4j;
 public class ModuleProgressController {
 
     private final ModuleProgressService progressService;
-    private final UserRepository userRepository;
 
     @PostMapping
     @Operation(summary = "Create progress", description = "Creates a new progress record")
@@ -81,14 +75,13 @@ public class ModuleProgressController {
         return ResponseEntity.ok(PageUtils.createPageResponse(page, pageable));
     }
 
-    @GetMapping("/user/{userId}/due")
+    @GetMapping("/due")
     @Operation(summary = "Get due progress records", description = "Retrieves a paginated list of progress records due for study")
-    public ResponseEntity<PageResponse<ModuleProgressSummaryResponse>> getDueProgress(@PathVariable UUID userId,
+    public ResponseEntity<PageResponse<ModuleProgressSummaryResponse>> getDueProgress(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate studyDate,
             @PageableDefault(size = 20) Pageable pageable) {
-        log.debug("REST request to get due progress records for user ID: {} on date: {}, pageable: {}", userId,
-                studyDate, pageable);
-        final Page<ModuleProgressSummaryResponse> page = progressService.findDueForStudy(userId, studyDate, pageable);
+        log.debug("REST request to get due progress records on date: {}, pageable: {}", studyDate, pageable);
+        final Page<ModuleProgressSummaryResponse> page = progressService.findDueForStudy(studyDate, pageable);
         return ResponseEntity.ok(PageUtils.createPageResponse(page, pageable));
     }
 
@@ -101,7 +94,6 @@ public class ModuleProgressController {
     }
 
     @GetMapping("/module/{moduleId}")
-    @PreAuthorize("hasRole('ADMIN')")
     @Operation(summary = "Get progress by module ID", description = "Retrieves a paginated list of progress records for a module")
     public ResponseEntity<PageResponse<ModuleProgressSummaryResponse>> getProgressByModuleId(
             @PathVariable UUID moduleId, @PageableDefault(size = 20) Pageable pageable) {
@@ -110,78 +102,31 @@ public class ModuleProgressController {
         return ResponseEntity.ok(PageUtils.createPageResponse(page, pageable));
     }
 
-    @GetMapping("/user/{userId}/book/{bookId}")
-    @Operation(summary = "Get progress by user and book", description = "Retrieves a paginated list of progress records for a user and book")
-    public ResponseEntity<PageResponse<ModuleProgressSummaryResponse>> getProgressByUserAndBook(
-            @PathVariable UUID userId, @PathVariable UUID bookId, @PageableDefault(size = 20) Pageable pageable) {
-        log.debug("REST request to get progress by user ID: {} and book ID: {}, pageable: {}", userId, bookId,
-                pageable);
-        final Page<ModuleProgressSummaryResponse> page = progressService.findByUserIdAndBookId(userId, bookId,
-                pageable);
+    @GetMapping("/book/{bookId}")
+    @Operation(summary = "Get progress by book", description = "Retrieves a paginated list of progress records for a book")
+    public ResponseEntity<PageResponse<ModuleProgressSummaryResponse>> getProgressByBook(
+            @PathVariable UUID bookId, @PageableDefault(size = 20) Pageable pageable) {
+        log.debug("REST request to get progress by book ID: {}, pageable: {}", bookId, pageable);
+        final Page<ModuleProgressSummaryResponse> page = progressService.findByBookId(bookId, pageable);
         return ResponseEntity.ok(PageUtils.createPageResponse(page, pageable));
     }
 
-    @GetMapping("/user/{userId}/module/{moduleId}")
-    @Operation(summary = "Get progress by user and module", description = "Retrieves a progress record for a specific user and module")
-    public ResponseEntity<DataResponse<ModuleProgressDetailResponse>> getProgressByUserAndModule(
-            @PathVariable UUID userId, @PathVariable UUID moduleId) {
-        log.debug("REST request to get progress by user ID: {} and module ID: {}", userId, moduleId);
-        final ModuleProgressDetailResponse progress = progressService.findByUserIdAndModuleId(userId, moduleId);
+    @GetMapping("/module/{moduleId}/detail")
+    @Operation(summary = "Get detailed progress by module ID", description = "Retrieves a detailed progress record for a specific module")
+    public ResponseEntity<DataResponse<ModuleProgressDetailResponse>> getProgressDetailByModule(
+            @PathVariable UUID moduleId) {
+        log.debug("REST request to get detailed progress for module ID: {}", moduleId);
+        final ModuleProgressDetailResponse progress = progressService.findByModuleId(moduleId);
         return ResponseEntity.ok(DataResponse.of(progress));
     }
 
-    @GetMapping("/user/current/module/{moduleId}")
-    @Operation(summary = "Get progress for current user and module", description = "Retrieves a progress record for the current authenticated user and module")
-    public ResponseEntity<DataResponse<ModuleProgressDetailResponse>> getCurrentUserProgressByModuleId(
+    @GetMapping("/module/{moduleId}/find-or-create")
+    @Operation(summary = "Find or create progress for module", description = "Finds existing progress for a module or creates a new one if it doesn't exist")
+    public ResponseEntity<DataResponse<ModuleProgressDetailResponse>> findOrCreateProgressForModule(
             @PathVariable UUID moduleId) {
-        log.debug("REST request to get progress for current user and module ID: {}", moduleId);
-
-        // Lấy thông tin xác thực hiện tại
-        final Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-
-        // Kiểm tra nếu authentication là null hoặc không được xác thực
-        if (authentication == null || !authentication.isAuthenticated()
-                || "anonymousUser".equals(authentication.getName())) {
-            log.error("User not authenticated when accessing progress for module ID: {}", moduleId);
-            throw SpacedLearningException.unauthorized("User not authenticated");
-        }
-
-        // Lấy email của người dùng từ thông tin xác thực
-        final String userEmail = authentication.getName();
-        log.debug("Getting progress for authenticated user: {} and module ID: {}", userEmail, moduleId);
-
-        // Tìm thông tin người dùng từ email
-        final User user = userRepository.findByUsernameOrEmail(userEmail).orElseThrow(() -> {
-            log.error("User with email {} not found in database", userEmail);
-            return SpacedLearningException.unauthorized("User not found in database");
-        });
-
-        // Tìm progress cho user và module
-        try {
-            final ModuleProgressDetailResponse progress = progressService.findByUserIdAndModuleId(user.getId(),
-                    moduleId);
-            return ResponseEntity.ok(DataResponse.of(progress));
-        } catch (final Exception e) {
-            log.error("Error finding progress for user ID: {} and module ID: {}: {}", user.getId(), moduleId,
-                    e.getMessage());
-
-            // Xử lý trường hợp không tìm thấy progress
-            if (e instanceof SpacedLearningException && e.getMessage().contains("not found")) {
-                return ResponseEntity.ok(DataResponse.of(null));
-            }
-
-            // Rethrow if it's a different kind of exception
-            throw e;
-        }
-    }
-
-    @GetMapping("/user/{userId}")
-    @Operation(summary = "Get progress by user ID", description = "Retrieves a paginated list of progress records for a user")
-    public ResponseEntity<PageResponse<ModuleProgressSummaryResponse>> getProgressByUserId(@PathVariable UUID userId,
-            @PageableDefault(size = 20) Pageable pageable) {
-        log.debug("REST request to get progress by user ID: {}, pageable: {}", userId, pageable);
-        final Page<ModuleProgressSummaryResponse> page = progressService.findByUserId(userId, pageable);
-        return ResponseEntity.ok(PageUtils.createPageResponse(page, pageable));
+        log.debug("REST request to find or create progress for module ID: {}", moduleId);
+        final ModuleProgressDetailResponse progress = progressService.findOrCreateProgressForModule(moduleId);
+        return ResponseEntity.ok(DataResponse.of(progress));
     }
 
     @PutMapping("/{id}")
@@ -192,5 +137,4 @@ public class ModuleProgressController {
         final ModuleProgressDetailResponse updatedProgress = progressService.update(id, request);
         return ResponseEntity.ok(DataResponse.of(updatedProgress));
     }
-
 }

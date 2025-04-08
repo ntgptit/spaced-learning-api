@@ -14,7 +14,6 @@ import jakarta.persistence.FetchType;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.JoinTable;
 import jakarta.persistence.ManyToMany;
-import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
@@ -62,12 +61,16 @@ public class User extends BaseEntity {
     @Column(name = "status", length = 20)
     private UserStatus status = UserStatus.ACTIVE;
 
-    @OneToMany(mappedBy = "user")
-    private Set<ModuleProgress> moduleProgresses = new HashSet<>();
+    // Removed: @OneToMany(mappedBy = "user") private Set<ModuleProgress> moduleProgresses
 
     @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(name = "user_roles", schema = "spaced_learning", joinColumns = @JoinColumn(name = "user_id"), inverseJoinColumns = @JoinColumn(name = "role_id"))
     private Set<Role> roles = new HashSet<>();
+
+    // Added: Many-to-Many relationship with Book
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(name = "user_books", schema = "spaced_learning", joinColumns = @JoinColumn(name = "user_id"), inverseJoinColumns = @JoinColumn(name = "book_id"))
+    private Set<Book> books = new HashSet<>();
 
     @Column(name = "last_active_date")
     private LocalDateTime lastActiveDate;
@@ -108,6 +111,36 @@ public class User extends BaseEntity {
             return false;
         }
         return roles.remove(role);
+    }
+
+    /**
+     * Add a book to this user
+     *
+     * @param book The book to add
+     */
+    public void addBook(Book book) {
+        if (books == null) {
+            books = new HashSet<>();
+        }
+        books.add(book);
+        book.getUsers().add(this);
+    }
+
+    /**
+     * Remove a book from this user
+     *
+     * @param book The book to remove
+     * @return true if the book was removed, false if not found
+     */
+    public boolean removeBook(Book book) {
+        if (books == null) {
+            return false;
+        }
+        if (books.remove(book)) {
+            book.getUsers().remove(this);
+            return true;
+        }
+        return false;
     }
 
     @Override

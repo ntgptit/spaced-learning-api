@@ -147,7 +147,7 @@ public class RepetitionServiceImpl implements RepetitionService {
 
         final LocalDate dateToCheck = reviewDate != null ? reviewDate : LocalDate.now();
         final RepetitionStatus statusToCheck = status != null ? status : RepetitionStatus.NOT_STARTED;
-        return repetitionRepository.findDueRepetitions(userId, dateToCheck, statusToCheck, pageable)
+        return repetitionRepository.findDueRepetitions(dateToCheck, statusToCheck, pageable)
                 .map(repetitionMapper::toDto);
     }
 

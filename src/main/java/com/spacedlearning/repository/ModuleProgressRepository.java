@@ -23,23 +23,21 @@ import com.spacedlearning.entity.ModuleProgress;
 public interface ModuleProgressRepository extends JpaRepository<ModuleProgress, UUID> {
 
     /**
-     * Count progress records by user and book
+     * Count progress records by book
      *
-     * @param userId User ID
      * @param bookId Book ID
      * @return Number of progress records
      */
-    @Query("SELECT COUNT(mp) FROM ModuleProgress mp WHERE mp.user.id = :userId " + "AND mp.module.book.id = :bookId")
-    long countByUserAndBook(@Param("userId") UUID userId, @Param("bookId") UUID bookId);
+    @Query("SELECT COUNT(mp) FROM ModuleProgress mp WHERE mp.module.book.id = :bookId")
+    long countByBookId(@Param("bookId") UUID bookId);
 
     /**
-     * Check if progress exists for user and module
+     * Check if progress exists for module
      *
-     * @param userId   User ID
      * @param moduleId Module ID
      * @return true if exists, false otherwise
      */
-    boolean existsByUserIdAndModuleId(UUID userId, UUID moduleId);
+    boolean existsByModuleId(UUID moduleId);
 
     /**
      * Find progress by module ID
@@ -51,77 +49,49 @@ public interface ModuleProgressRepository extends JpaRepository<ModuleProgress, 
     Page<ModuleProgress> findByModuleId(UUID moduleId, Pageable pageable);
 
     /**
-     * Find progress records by user and book
+     * Find progress records by book
      *
-     * @param userId   User ID
      * @param bookId   Book ID
      * @param pageable Pagination information
      * @return Page of progress records
      */
-    @Query("SELECT mp FROM ModuleProgress mp WHERE mp.user.id = :userId " + "AND mp.module.book.id = :bookId "
-            + "ORDER BY mp.module.moduleNo ASC")
-    Page<ModuleProgress> findByUserAndBook(@Param("userId") UUID userId, @Param("bookId") UUID bookId,
-            Pageable pageable);
+    @Query("SELECT mp FROM ModuleProgress mp WHERE mp.module.book.id = :bookId ORDER BY mp.module.moduleNo ASC")
+    Page<ModuleProgress> findByBookId(@Param("bookId") UUID bookId, Pageable pageable);
 
     /**
-     * Find progress by user ID
+     * Find progress by module ID
      *
-     * @param userId   User ID
-     * @param pageable Pagination information
-     * @return Page of progress records
-     */
-    Page<ModuleProgress> findByUserId(UUID userId, Pageable pageable);
-
-    /**
-     * Find all progress by user ID without pagination
-     *
-     * @param userId User ID
-     * @return List of progress records
-     */
-    List<ModuleProgress> findByUserId(UUID userId);
-
-    /**
-     * Find progress by user ID and module ID
-     *
-     * @param userId   User ID
      * @param moduleId Module ID
      * @return Optional containing progress record
      */
-    Optional<ModuleProgress> findByUserIdAndModuleId(UUID userId, UUID moduleId);
+    Optional<ModuleProgress> findByModuleId(UUID moduleId);
 
     /**
-     * Find progress by user ID and percent complete
+     * Find progress by percent complete
      *
-     * @param userId          User ID
      * @param percentComplete The completion percentage
      * @return List of progress records
      */
-    List<ModuleProgress> findByUserIdAndPercentComplete(UUID userId, BigDecimal percentComplete);
+    List<ModuleProgress> findByPercentComplete(BigDecimal percentComplete);
 
     /**
      * Find progress records due for study on or before a specific date
      *
-     * @param userId    User ID
      * @param studyDate Study date
      * @param pageable  Pagination information
      * @return Page of progress records
      */
-    @Query("SELECT mp FROM ModuleProgress mp WHERE mp.user.id = :userId " +
-            "AND mp.nextStudyDate <= :studyDate " +
-            "ORDER BY mp.nextStudyDate ASC")
-    Page<ModuleProgress> findDueForStudy(@Param("userId") UUID userId, @Param("studyDate") LocalDate studyDate,
-            Pageable pageable);
+    @Query("SELECT mp FROM ModuleProgress mp WHERE mp.nextStudyDate <= :studyDate ORDER BY mp.nextStudyDate ASC")
+    Page<ModuleProgress> findByNextStudyDateLessThanEqual(@Param("studyDate") LocalDate studyDate, Pageable pageable);
 
     /**
      * Find progress records due for study on or before a specific date without pagination
      *
-     * @param userId    User ID
      * @param studyDate Study date
      * @return List of progress records
      */
-    @Query("SELECT mp FROM ModuleProgress mp WHERE mp.user.id = :userId " + "AND mp.nextStudyDate <= :studyDate "
-            + "ORDER BY mp.nextStudyDate ASC")
-    List<ModuleProgress> findDueForStudy(@Param("userId") UUID userId, @Param("studyDate") LocalDate studyDate);
+    @Query("SELECT mp FROM ModuleProgress mp WHERE mp.nextStudyDate <= :studyDate ORDER BY mp.nextStudyDate ASC")
+    List<ModuleProgress> findByNextStudyDateLessThanEqual(@Param("studyDate") LocalDate studyDate);
 
     /**
      * Find progress by ID with repetitions eagerly loaded
@@ -133,58 +103,44 @@ public interface ModuleProgressRepository extends JpaRepository<ModuleProgress, 
     Optional<ModuleProgress> findWithRepetitionsById(UUID id);
 
     /**
-     * Find unique book names for a user
+     * Find unique book names
      *
-     * @param userId User ID
      * @return List of unique book names
      */
-    @Query("SELECT DISTINCT m.book.name FROM Module m " +
-            "JOIN ModuleProgress mp ON m.id = mp.module.id " +
-            "WHERE mp.user.id = :userId " +
-            "ORDER BY m.book.name")
-    List<String> findUniqueBooksByUserId(@Param("userId") UUID userId);
+    @Query("SELECT DISTINCT m.book.name FROM Module m JOIN ModuleProgress mp ON m.id = mp.module.id ORDER BY m.book.name")
+    List<String> findUniqueBookNames();
 
     /**
-     * Find progress by user ID and book name
+     * Find progress by book name
      *
-     * @param userId   User ID
      * @param bookName Book name
      * @return List of progress records
      */
-    @Query("SELECT mp FROM ModuleProgress mp " +
-            "JOIN mp.module m " +
-            "JOIN m.book b " +
-            "WHERE mp.user.id = :userId " +
-            "AND b.name = :bookName")
-    List<ModuleProgress> findByUserIdAndBookName(@Param("userId") UUID userId, @Param("bookName") String bookName);
+    @Query("SELECT mp FROM ModuleProgress mp JOIN mp.module m JOIN m.book b WHERE b.name = :bookName")
+    List<ModuleProgress> findByBookName(@Param("bookName") String bookName);
 
     /**
-     * Find progress by user ID and next study date
+     * Find progress by next study date
      *
-     * @param userId        User ID
      * @param nextStudyDate Next study date
      * @return List of progress records
      */
-    List<ModuleProgress> findByUserIdAndNextStudyDate(UUID userId, LocalDate nextStudyDate);
+    List<ModuleProgress> findByNextStudyDate(LocalDate nextStudyDate);
 
     /**
-     * Find progress by user ID with repetitions eagerly loaded
+     * Calculate total learned words across all progress
      *
-     * @param userId User ID
-     * @return List of progress records with repetitions
-     */
-    @EntityGraph(attributePaths = { "repetitions", "module", "module.book" })
-    @Query("SELECT mp FROM ModuleProgress mp WHERE mp.user.id = :userId")
-    List<ModuleProgress> findByUserIdWithRepetitions(@Param("userId") UUID userId);
-
-    /**
-     * Calculate total learned words for a user
-     *
-     * @param userId User ID
      * @return Total learned words
      */
-    @Query("SELECT SUM(m.wordCount * mp.percentComplete / 100) FROM ModuleProgress mp " +
-            "JOIN mp.module m " +
-            "WHERE mp.user.id = :userId")
-    Integer calculateTotalLearnedWords(@Param("userId") UUID userId);
+    @Query("SELECT SUM(m.wordCount * mp.percentComplete / 100) FROM ModuleProgress mp JOIN mp.module m")
+    Integer calculateTotalLearnedWords();
+
+    /**
+     * Find progress by module ID with repetitions eagerly loaded
+     *
+     * @param moduleId Module ID
+     * @return Optional containing progress with repetitions
+     */
+    @EntityGraph(attributePaths = { "repetitions" })
+    Optional<ModuleProgress> findWithRepetitionsByModuleId(UUID moduleId);
 }

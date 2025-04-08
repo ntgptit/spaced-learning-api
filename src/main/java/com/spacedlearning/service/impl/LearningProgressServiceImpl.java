@@ -11,8 +11,6 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 import org.springframework.http.HttpStatus;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,13 +21,11 @@ import com.spacedlearning.entity.Book;
 import com.spacedlearning.entity.Module;
 import com.spacedlearning.entity.ModuleProgress;
 import com.spacedlearning.entity.Repetition;
-import com.spacedlearning.entity.User;
 import com.spacedlearning.entity.enums.RepetitionStatus;
 import com.spacedlearning.exception.SpacedLearningException;
 import com.spacedlearning.repository.BookRepository;
 import com.spacedlearning.repository.ModuleProgressRepository;
 import com.spacedlearning.repository.ModuleRepository;
-import com.spacedlearning.repository.UserRepository;
 import com.spacedlearning.service.LearningProgressService;
 
 import lombok.RequiredArgsConstructor;
@@ -43,14 +39,11 @@ public class LearningProgressServiceImpl implements LearningProgressService {
     private final BookRepository bookRepository;
     private final ModuleRepository moduleRepository;
     private final ModuleProgressRepository moduleProgressRepository;
-    private final UserRepository userRepository;
 
     @Override
     @Transactional(readOnly = true)
     public DashboardStatsResponse getDashboardStats(String bookFilter, LocalDate dateFilter) {
-        final UUID userId = getCurrentUserId();
-        log.info("Fetching dashboard stats for userId: {}, bookFilter: {}, dateFilter: {}", userId, bookFilter,
-                dateFilter);
+        log.info("Fetching dashboard stats with bookFilter: {}, dateFilter: {}", bookFilter, dateFilter);
 
         final List<LearningModuleResponse> allModules = getAllModules();
         List<LearningModuleResponse> filteredModules = allModules;
@@ -94,12 +87,13 @@ public class LearningProgressServiceImpl implements LearningProgressService {
     @Override
     @Transactional(readOnly = true)
     public List<LearningModuleResponse> getAllModules() {
-        final UUID userId = getCurrentUserId();
-        log.info("Fetching all modules for userId: {}", userId);
+        log.info("Fetching all modules");
 
         final List<Module> allModules = moduleRepository.findAll();
-        final List<ModuleProgress> progressList = moduleProgressRepository.findByUserId(userId);
-        final Map<UUID, ModuleProgress> progressMap = progressList.stream()
+        final List<ModuleProgress> allProgress = moduleProgressRepository.findAll();
+
+        // Tạo map từ moduleId đến ModuleProgress
+        final Map<UUID, ModuleProgress> progressMap = allProgress.stream()
                 .collect(Collectors.toMap(
                         progress -> progress.getModule().getId(),
                         progress -> progress,
@@ -112,7 +106,6 @@ public class LearningProgressServiceImpl implements LearningProgressService {
                     if (progress == null) {
                         progress = new ModuleProgress();
                         progress.setModule(module);
-                        progress.setUser(userRepository.findById(userId).orElse(null));
                         progress.setPercentComplete(new java.math.BigDecimal(0));
                         progress.setRepetitions(new ArrayList<>());
                     }
@@ -124,31 +117,30 @@ public class LearningProgressServiceImpl implements LearningProgressService {
     @Override
     @Transactional(readOnly = true)
     public List<LearningModuleResponse> getDueModules(int daysThreshold) {
-        final UUID userId = getCurrentUserId();
         final LocalDate today = LocalDate.now();
-
         final LocalDate thresholdDate = today.plusDays(daysThreshold);
-        final List<ModuleProgress> dueProgress = moduleProgressRepository.findDueForStudy(
-                userId, thresholdDate, null).getContent();
+
+        final List<ModuleProgress> dueProgress = moduleProgressRepository.findByNextStudyDateLessThanEqual(
+                thresholdDate);
         return dueProgress.stream()
-                .map(this::convertToLearningModuleResponse).toList();
+                .map(this::convertToLearningModuleResponse)
+                .toList();
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<LearningModuleResponse> getCompletedModules() {
-        final UUID userId = getCurrentUserId();
-        final List<ModuleProgress> completedProgress = moduleProgressRepository.findByUserIdAndPercentComplete(
-                userId, new java.math.BigDecimal(100));
+        final List<ModuleProgress> completedProgress = moduleProgressRepository.findByPercentComplete(
+                new java.math.BigDecimal(100));
         return completedProgress.stream()
-                .map(this::convertToLearningModuleResponse).toList();
+                .map(this::convertToLearningModuleResponse)
+                .toList();
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<String> getUniqueBooks() {
-        final UUID userId = getCurrentUserId();
-        final List<String> books = moduleProgressRepository.findUniqueBooksByUserId(userId);
+        final List<String> books = moduleProgressRepository.findUniqueBookNames();
         final List<String> result = new ArrayList<>();
         result.add("All");
         result.addAll(books);
@@ -158,7 +150,6 @@ public class LearningProgressServiceImpl implements LearningProgressService {
     @Override
     @Transactional(readOnly = true)
     public BookStatsResponse getBookStats(String bookName) {
-        final UUID userId = getCurrentUserId();
         final Book book = bookRepository.findByName(bookName)
                 .orElseThrow(() -> SpacedLearningException.resourceNotFound("Book", bookName));
         final List<Module> modules = moduleRepository.findByBookIdOrderByModuleNo(book.getId());
@@ -166,9 +157,10 @@ public class LearningProgressServiceImpl implements LearningProgressService {
         final int totalModules = modules.size();
         final int totalWords = modules.stream().mapToInt(Module::getWordCount).sum();
 
+        // Lấy tất cả progress cho các module của book
         final List<ModuleProgress> progressList = new ArrayList<>();
         for (final Module module : modules) {
-            moduleProgressRepository.findByUserIdAndModuleId(userId, module.getId())
+            moduleProgressRepository.findByModuleId(module.getId())
                     .ifPresent(progressList::add);
         }
 
@@ -255,20 +247,6 @@ public class LearningProgressServiceImpl implements LearningProgressService {
                 .lastStudyDate(lastStudyDate)
                 .studyHistory(studyHistory)
                 .build();
-    }
-
-    private UUID getCurrentUserId() {
-        final Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null || !authentication.isAuthenticated() ||
-                "anonymousUser".equals(authentication.getName())) {
-            throw SpacedLearningException.unauthorized("User not authenticated");
-        }
-
-        final String username = authentication.getName();
-        final User user = userRepository.findByUsernameOrEmail(username)
-                .orElseThrow(() -> SpacedLearningException.unauthorized("User not found"));
-
-        return user.getId();
     }
 
     private int countDueModules(List<LearningModuleResponse> modules, LocalDate start, LocalDate end) {

@@ -1,4 +1,3 @@
-// File: src/main/java/com/spacedlearning/service/impl/ModuleProgressServiceImpl.java
 package com.spacedlearning.service.impl;
 
 import java.time.LocalDate;
@@ -7,8 +6,6 @@ import java.util.UUID;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -18,12 +15,10 @@ import com.spacedlearning.dto.progress.ModuleProgressSummaryResponse;
 import com.spacedlearning.dto.progress.ModuleProgressUpdateRequest;
 import com.spacedlearning.entity.Module;
 import com.spacedlearning.entity.ModuleProgress;
-import com.spacedlearning.entity.User;
 import com.spacedlearning.exception.SpacedLearningException;
 import com.spacedlearning.mapper.ModuleProgressMapper;
 import com.spacedlearning.repository.ModuleProgressRepository;
 import com.spacedlearning.repository.ModuleRepository;
-import com.spacedlearning.repository.UserRepository;
 import com.spacedlearning.service.ModuleProgressService;
 import com.spacedlearning.service.RepetitionService;
 
@@ -40,33 +35,26 @@ public class ModuleProgressServiceImpl implements ModuleProgressService {
 
     private final ModuleProgressRepository progressRepository;
     private final ModuleRepository moduleRepository;
-    private final UserRepository userRepository;
     private final ModuleProgressMapper progressMapper;
     private final RepetitionService repetitionService;
 
     @Override
     @Transactional
-//	@CacheEvict(value = { "userModuleProgress", "moduleProgress" }, allEntries = true)
     public ModuleProgressDetailResponse create(ModuleProgressCreateRequest request) {
         log.debug("Creating new module progress: {}", request);
 
-        // Validate module and user existence
+        // Validate module existence
         final Module module = moduleRepository.findById(request.getModuleId())
                 .orElseThrow(() -> SpacedLearningException.resourceNotFound("Module", request.getModuleId()));
 
-        final User user = userRepository.findById(request.getUserId())
-                .orElseThrow(() -> SpacedLearningException.resourceNotFound("User", request.getUserId()));
-
-        // Check if progress already exists
-        if (progressRepository.existsByUserIdAndModuleId(request.getUserId(), request.getModuleId())) {
-            throw SpacedLearningException.resourceAlreadyExists("ModuleProgress", "user_id and module_id",
-                    request.getUserId() + ", " + request.getModuleId());
+        // Check if progress already exists for module
+        if (progressRepository.existsByModuleId(request.getModuleId())) {
+            throw SpacedLearningException.resourceAlreadyExists("ModuleProgress", "module_id", request.getModuleId()
+                    .toString());
         }
 
         // Create and save progress
-        final ModuleProgress progress = progressMapper.toEntity(request, module, user);
-        // Continuing:
-        // src/main/java/com/spacedlearning/service/impl/ModuleProgressServiceImpl.java
+        final ModuleProgress progress = progressMapper.toEntity(request, module);
         final ModuleProgress savedProgress = progressRepository.save(progress);
 
         log.info("Module progress created successfully with ID: {}", savedProgress.getId());
@@ -79,7 +67,6 @@ public class ModuleProgressServiceImpl implements ModuleProgressService {
 
     @Override
     @Transactional
-//	@CacheEvict(value = { "userModuleProgress", "moduleProgress" }, key = "#id")
     public void delete(UUID id) {
         log.debug("Deleting module progress with ID: {}", id);
 
@@ -96,12 +83,12 @@ public class ModuleProgressServiceImpl implements ModuleProgressService {
     @Transactional(readOnly = true)
     public Page<ModuleProgressSummaryResponse> findAll(Pageable pageable) {
         log.debug("Finding all module progress with pagination: {}", pageable);
-        return progressRepository.findAll(pageable).map(progressMapper::toSummaryDto);
+        return progressRepository.findAll(pageable)
+                .map(progress -> progressMapper.toSummaryDto(progress));
     }
 
     @Override
     @Transactional(readOnly = true)
-//	@Cacheable(value = "moduleProgress", key = "#id")
     public ModuleProgressDetailResponse findById(UUID id) {
         log.debug("Finding module progress by ID: {}", id);
         final ModuleProgress progress = progressRepository.findWithRepetitionsById(id)
@@ -118,67 +105,45 @@ public class ModuleProgressServiceImpl implements ModuleProgressService {
             throw SpacedLearningException.resourceNotFound("Module", moduleId);
         }
 
-        return progressRepository.findByModuleId(moduleId, pageable).map(progressMapper::toSummaryDto);
+        return progressRepository.findByModuleId(moduleId, pageable)
+                .map(progress -> progressMapper.toSummaryDto(progress));
     }
 
     @Override
     @Transactional(readOnly = true)
-    public Page<ModuleProgressSummaryResponse> findByUserId(UUID userId, Pageable pageable) {
-        log.debug("Finding module progress by user ID: {}, pageable: {}", userId, pageable);
-        // Verify user exists
-        if (!userRepository.existsById(userId)) {
-            throw SpacedLearningException.resourceNotFound("User", userId);
-        }
+    public Page<ModuleProgressSummaryResponse> findByBookId(UUID bookId, Pageable pageable) {
+        log.debug("Finding module progress by book ID: {}, pageable: {}", bookId, pageable);
 
-        return progressRepository.findByUserId(userId, pageable).map(progressMapper::toSummaryDto);
+        return progressRepository.findByBookId(bookId, pageable)
+                .map(progress -> progressMapper.toSummaryDto(progress));
     }
 
     @Override
     @Transactional(readOnly = true)
-    public Page<ModuleProgressSummaryResponse> findByUserIdAndBookId(UUID userId, UUID bookId, Pageable pageable) {
-        log.debug("Finding module progress by user ID: {} and book ID: {}, pageable: {}", userId, bookId, pageable);
+    public ModuleProgressDetailResponse findByModuleId(UUID moduleId) {
+        log.debug("Finding module progress by module ID: {}", moduleId);
 
-        // Verify user exists
-        if (!userRepository.existsById(userId)) {
-            throw SpacedLearningException.resourceNotFound("User", userId);
-        }
-
-        return progressRepository.findByUserAndBook(userId, bookId, pageable).map(progressMapper::toSummaryDto);
-    }
-
-    @Override
-    @Transactional(readOnly = true)
-//	@Cacheable(value = "userModuleProgress", key = "#userId + '_' + #moduleId")
-    public ModuleProgressDetailResponse findByUserIdAndModuleId(UUID userId, UUID moduleId) {
-        log.debug("Finding module progress by user ID: {} and module ID: {}", userId, moduleId);
-
-        final ModuleProgress progress = progressRepository.findByUserIdAndModuleId(userId, moduleId)
+        final ModuleProgress progress = progressRepository.findByModuleId(moduleId)
                 .orElseThrow(() -> SpacedLearningException
-                        .resourceNotFound("ModuleProgress for User " + userId + " and Module " + moduleId, null));
+                        .resourceNotFound("ModuleProgress for Module " + moduleId, null));
 
         return progressMapper.toDto(progress);
     }
 
     @Override
     @Transactional(readOnly = true)
-    public Page<ModuleProgressSummaryResponse> findDueForStudy(UUID userId, LocalDate studyDate, Pageable pageable) {
-        log.debug("Finding module progress due for study for user ID: {} on or before date: {}, pageable: {}",
-                userId, studyDate, pageable);
-
-        // Verify user exists
-        if (!userRepository.existsById(userId)) {
-            throw SpacedLearningException.resourceNotFound("User", userId);
-        }
+    public Page<ModuleProgressSummaryResponse> findDueForStudy(LocalDate studyDate, Pageable pageable) {
+        log.debug("Finding module progress due for study on or before date: {}, pageable: {}",
+                studyDate, pageable);
 
         final LocalDate dateToCheck = studyDate != null ? studyDate : LocalDate.now();
 
-        return progressRepository.findDueForStudy(userId, dateToCheck, pageable)
+        return progressRepository.findByNextStudyDateLessThanEqual(dateToCheck, pageable)
                 .map(progressMapper::toSummaryDto);
     }
 
     @Override
     @Transactional
-//	@CacheEvict(value = { "userModuleProgress", "moduleProgress" }, key = "#id")
     public ModuleProgressDetailResponse update(UUID id, ModuleProgressUpdateRequest request) {
         log.debug("Updating module progress with ID: {}, request: {}", id, request);
 
@@ -194,30 +159,23 @@ public class ModuleProgressServiceImpl implements ModuleProgressService {
 
     @Override
     @Transactional(readOnly = true)
-    public ModuleProgressDetailResponse findProgressForCurrentUserAndModule(UUID moduleId) {
-        log.debug("Finding module progress for current user and module ID: {}", moduleId);
+    public ModuleProgressDetailResponse findOrCreateProgressForModule(UUID moduleId) {
+        log.debug("Finding or creating module progress for module ID: {}", moduleId);
 
-        // Get current authenticated user
-        final Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null || !authentication.isAuthenticated() ||
-                "anonymousUser".equals(authentication.getName())) {
-            throw SpacedLearningException.unauthorized("User not authenticated");
+        // Try to find existing progress
+        final Optional<ModuleProgress> existingProgress = progressRepository.findByModuleId(moduleId);
+
+        if (existingProgress.isPresent()) {
+            return progressMapper.toDto(existingProgress.get());
         }
 
-        final String username = authentication.getName();
-        final User user = userRepository.findByUsernameOrEmail(username)
-                .orElseThrow(() -> SpacedLearningException.unauthorized("User not found"));
+        moduleRepository.findById(moduleId)
+                .orElseThrow(() -> SpacedLearningException.resourceNotFound("Module", moduleId));
 
-        // Direct repository call with early return pattern
-        final Optional<ModuleProgress> progressOpt = progressRepository.findByUserIdAndModuleId(user.getId(),
-                moduleId);
+        final ModuleProgressCreateRequest createRequest = ModuleProgressCreateRequest.builder()
+                .moduleId(moduleId)
+                .build();
 
-        if (progressOpt.isEmpty()) {
-            // Early return null if not found (frontend expects null, not exception)
-            return null;
-        }
-
-        // Process found record
-        return progressMapper.toDto(progressOpt.get());
+        return create(createRequest);
     }
 }
