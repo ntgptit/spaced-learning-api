@@ -6,7 +6,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Component;
 
@@ -53,6 +52,52 @@ public class RepetitionScheduleManager {
             repetitions.add(repetition);
         }
         return repetitions;
+    }
+
+    /**
+     * Reschedule future repetitions based on a new start date for a specific repetition
+     *
+     * @param progress     Progress record
+     * @param currentOrder Current repetition order
+     * @param newStartDate New start date for the current repetition
+     */
+    public void rescheduleFutureRepetitions(
+            ModuleProgress progress,
+            RepetitionOrder currentOrder,
+            LocalDate newStartDate) {
+        final int currentIndex = getOrderIndex(currentOrder);
+        if (currentIndex == -1 || currentIndex >= RepetitionOrder.values().length - 1) {
+            return;
+        }
+
+        final List<Repetition> futureRepetitions = getFutureRepetitions(progress, currentIndex);
+
+        if (futureRepetitions.isEmpty()) {
+            log.debug("No future repetitions to reschedule for progress ID: {}", progress.getId());
+            return;
+        }
+
+        log.info("Rescheduling {} future repetitions based on new date: {}", futureRepetitions.size(), newStartDate);
+
+        // Calculate intervals relative to the current repetition
+        final int baseIndex = currentIndex;
+        RepetitionOrder.values();
+
+        for (final Repetition repetition : futureRepetitions) {
+            final int repIndex = getOrderIndex(repetition.getRepetitionOrder());
+            Math.max(1, repIndex - baseIndex);
+
+            // Calculate new review date based on spaced repetition intervals
+            // Use the review multipliers to maintain proper spacing
+            final int dayOffset = REVIEW_MULTIPLIERS[repIndex] - REVIEW_MULTIPLIERS[baseIndex];
+            final LocalDate newReviewDate = newStartDate.plusDays(dayOffset);
+
+            repetition.setReviewDate(newReviewDate);
+            log.debug("Rescheduled repetition {} to {}", repetition.getRepetitionOrder(), newReviewDate);
+        }
+
+        repetitionRepository.saveAll(futureRepetitions);
+        updateNextStudyDate(progress);
     }
 
     private Repetition createRepetition(ModuleProgress progress, RepetitionOrder order, int reviewIndex) {
@@ -158,7 +203,7 @@ public class RepetitionScheduleManager {
                 .findByModuleProgressIdAndStatusOrderByRepetitionOrder(progress.getId(), RepetitionStatus.NOT_STARTED);
         return futureRepetitions.stream()
                 .filter(rep -> getOrderIndex(rep.getRepetitionOrder()) > currentIndex)
-                .collect(Collectors.toList());
+                .toList();
     }
 
     private void updateRepetitionDates(ModuleProgress progress, List<Repetition> repetitions) {

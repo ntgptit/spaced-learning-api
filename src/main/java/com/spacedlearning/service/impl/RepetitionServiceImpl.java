@@ -165,7 +165,10 @@ public class RepetitionServiceImpl implements RepetitionService {
         repetitionMapper.updateFromDto(request, repetition);
         final RepetitionStatus newStatus = repetition.getStatus();
 
-        if (previousStatus != RepetitionStatus.COMPLETED && newStatus == RepetitionStatus.COMPLETED) {
+        if (request.isRescheduleFollowing() && request.getReviewDate() != null) {
+            scheduleManager.rescheduleFutureRepetitions(progress, repetition.getRepetitionOrder(),
+                    request.getReviewDate());
+        } else if (previousStatus != RepetitionStatus.COMPLETED && newStatus == RepetitionStatus.COMPLETED) {
             log.debug("Status changed to COMPLETED for Repetition ID: {}", id);
             scheduleManager.updateFutureRepetitions(progress, repetition.getRepetitionOrder());
             scheduleManager.checkAndUpdateCycleStudied(progress);

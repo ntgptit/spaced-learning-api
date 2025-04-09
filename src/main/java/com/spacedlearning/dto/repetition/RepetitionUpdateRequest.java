@@ -19,7 +19,7 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class RepetitionUpdateRequest {
 
-	private RepetitionStatus status;
-
-	private LocalDate reviewDate;
+    private RepetitionStatus status;
+    private LocalDate reviewDate;
+    private boolean rescheduleFollowing;
 }
