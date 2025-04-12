@@ -2,7 +2,6 @@ package com.spacedlearning.dto.learning;
 
 import java.time.LocalDate;
 import java.util.List;
-
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -13,6 +12,13 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class LearningModuleResponse {
+    public LearningModuleResponse(String bookName, LocalDate progressNextStudyDate,
+            int progressLatestPercentComplete) {
+        this.bookName = bookName;
+        this.progressNextStudyDate = progressNextStudyDate;
+        this.progressLatestPercentComplete = progressLatestPercentComplete;
+    }
+
     private String bookName;
     private Integer bookNo;
     private String moduleTitle;

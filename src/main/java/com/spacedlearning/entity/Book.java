@@ -4,10 +4,8 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-
 import com.spacedlearning.entity.enums.BookStatus;
 import com.spacedlearning.entity.enums.DifficultyLevel;
-
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -58,7 +56,8 @@ public class Book extends BaseEntity {
     @Column(name = "book_no")
     private Integer bookNo = 0;
 
-    @OneToMany(mappedBy = "book", fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
+    @OneToMany(mappedBy = "book", fetch = FetchType.LAZY, cascade = CascadeType.ALL,
+            orphanRemoval = true)
     private List<Module> modules = new ArrayList<>();
 
     // Added: Many-to-Many relationship with User
@@ -89,5 +88,9 @@ public class Book extends BaseEntity {
             module.setBook(null);
         }
         return removed;
+    }
+
+    public Book(String string) {
+        // TODO Auto-generated constructor stub
     }
 }
