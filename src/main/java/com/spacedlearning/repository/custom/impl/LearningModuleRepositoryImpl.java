@@ -33,7 +33,7 @@ public class LearningModuleRepositoryImpl implements LearningModuleRepository {
                     mp.next_study_date AS progress_next_study_date,
                     mp.first_learning_date AS progress_first_learning_date,
                     mp.percent_complete AS progress_latest_percent_complete,
-                    COUNT(DISTINCT mp.next_study_date) AS progress_due_task_count,
+                    msd.modules_on_same_day AS progress_due_task_count, -- 👈 thêm dòng này
                     m.id AS module_id,
                     STRING_AGG(TO_CHAR(r.review_date, 'YYYY-MM-DD'), ', ' ORDER BY r.review_date DESC) AS review_dates
                 FROM
@@ -41,7 +41,19 @@ public class LearningModuleRepositoryImpl implements LearningModuleRepository {
                 INNER JOIN books b ON
                     b.id = m.book_id
                 LEFT JOIN module_progress mp ON
-                    mp.module_id = m.id
+                    mp.module_id = m.id AND mp.deleted_at IS NULL
+                LEFT JOIN (
+                    SELECT
+                        next_study_date::date AS study_date,
+                        COUNT(*) AS modules_on_same_day
+                    FROM
+                        module_progress
+                    WHERE
+                        next_study_date IS NOT NULL
+                        AND deleted_at IS NULL
+                    GROUP BY
+                        next_study_date::date
+                ) msd ON msd.study_date = mp.next_study_date::date -- 👈 join theo ngày học
                 LEFT JOIN repetitions r ON
                     r.module_progress_id = mp.id
                     AND r.status = 'COMPLETED'
@@ -49,7 +61,6 @@ public class LearningModuleRepositoryImpl implements LearningModuleRepository {
                 WHERE
                     b.deleted_at IS NULL
                     AND m.deleted_at IS NULL
-                    AND mp.deleted_at IS NULL
                 GROUP BY
                     b."name",
                     b.book_no,
@@ -60,14 +71,14 @@ public class LearningModuleRepositoryImpl implements LearningModuleRepository {
                     mp.next_study_date,
                     mp.first_learning_date,
                     mp.percent_complete,
+                    msd.modules_on_same_day,
                     m.id
                 ORDER BY
                     mp.next_study_date NULLS LAST,
                     mp.percent_complete,
                     m.word_count,
                     b.book_no DESC,
-                    m.module_no
-
+                    m.module_no;
                                 """;
 
         final Query query = entityManager.createNativeQuery(sql);

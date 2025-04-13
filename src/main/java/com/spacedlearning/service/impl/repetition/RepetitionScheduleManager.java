@@ -5,7 +5,9 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Component;
 
@@ -47,10 +49,33 @@ public class RepetitionScheduleManager {
         final List<Repetition> repetitions = new ArrayList<>();
         final RepetitionOrder[] orders = RepetitionOrder.values();
 
-        for (int i = 0; i < orders.length; i++) {
+        // Tạo bốn lần lặp đầu tiên
+        for (int i = 0; i < 4; i++) {
             final Repetition repetition = createRepetition(progress, orders[i], i);
             repetitions.add(repetition);
         }
+
+        // Xử lý đặc biệt cho lần lặp thứ 5
+        LocalDate reviewDate = calculateReviewDate(progress, 4);
+
+        // Kiểm tra xem có trùng với repetition 4 không
+        if (repetitions.size() >= 4) {
+            final LocalDate rep4Date = repetitions.get(3).getReviewDate();
+
+            // Nếu trùng, thêm một khoảng cách cố định
+            if (reviewDate.equals(rep4Date)) {
+                // Thêm 10 ngày để tách biệt
+                reviewDate = rep4Date.plusDays(15);
+            }
+        }
+
+        final Repetition repetition5 = new Repetition();
+        repetition5.setModuleProgress(progress);
+        repetition5.setRepetitionOrder(orders[4]);
+        repetition5.setStatus(RepetitionStatus.NOT_STARTED);
+        repetition5.setReviewDate(findOptimalDate(reviewDate));
+        repetitions.add(repetition5);
+
         return repetitions;
     }
 
@@ -77,7 +102,8 @@ public class RepetitionScheduleManager {
             return;
         }
 
-        log.info("Rescheduling {} future repetitions based on new date: {}", Optional.of(futureRepetitions.size()), newStartDate);
+        log.info("Rescheduling {} future repetitions based on new date: {}", Optional.of(futureRepetitions.size()),
+                newStartDate);
 
         // Calculate intervals relative to the current repetition
         RepetitionOrder.values();
@@ -139,32 +165,56 @@ public class RepetitionScheduleManager {
     }
 
     private LocalDate findOptimalDate(LocalDate initialDate) {
-        final int repetitionCount = getRepetitionCount(initialDate);
-        if (repetitionCount <= 3) {
+        if (initialDate == null) {
+            throw new IllegalArgumentException("Initial date cannot be null");
+        }
+
+        final LocalDate startDate = initialDate;
+        final LocalDate endDate = initialDate.plusDays(7);
+
+        final List<Object[]> dateCountsList = repetitionRepository.countReviewDatesBetween(startDate, endDate);
+        if (dateCountsList == null || dateCountsList.isEmpty()) {
+            log.warn("No repetition counts available for range {} to {}. Using initial date.", startDate, endDate);
             return initialDate;
         }
 
-        log.warn("Initial date {} is overloaded (count={}). Searching alternatives...", Optional.of(Optional.of(Optional.ofNullable(initialDate))), Optional.of(repetitionCount));
+        final Map<LocalDate, Long> dateCounts = dateCountsList.stream()
+                .collect(Collectors.toMap(
+                        arr -> {
+                            final Object dateObj = arr[0];
+                            if (dateObj instanceof LocalDate) {
+                                return (LocalDate) dateObj;
+                            }
+                            if (dateObj instanceof java.sql.Date) {
+                                return ((java.sql.Date) dateObj).toLocalDate();
+                            }
+                            throw new IllegalStateException("Unexpected reviewDate type: " + dateObj.getClass());
+                        },
+                        arr -> ((Number) arr[1]).longValue(),
+                        (v1, v2) -> v1));
+
+        final Long initialCount = dateCounts.getOrDefault(initialDate, 0L);
+        if (initialCount <= 3) {
+            return initialDate;
+        }
+
+        log.warn("Initial date {} is overloaded (count={}). Searching alternatives...", initialDate, initialCount);
         for (int i = 1; i <= 7; i++) {
-            assert initialDate != null;
             final LocalDate candidateDate = initialDate.plusDays(i);
-            if (getRepetitionCount(candidateDate) <= 3) {
+            if (candidateDate.isBefore(LocalDate.now())) {
+                continue; // Bỏ qua ngày trong quá khứ
+            }
+            final Long count = dateCounts.getOrDefault(candidateDate, 0L);
+            if (count <= 3) {
                 log.info("Found suitable alternative date: {}", candidateDate);
                 return candidateDate;
             }
         }
-        final LocalDate fallbackDate = initialDate.plusDays(1);
-        log.warn("No suitable alternative found. Falling back to: {}", fallbackDate);
-        return fallbackDate;
-    }
 
-    private int getRepetitionCount(LocalDate date) {
-        try {
-            return repetitionRepository.countReviewDateExisted(date);
-        } catch (final Exception e) {
-            log.error("Error counting repetitions for date {}: {}", date, e.getMessage(), e);
-            return Integer.MAX_VALUE;
-        }
+        final LocalDate fallbackDate = initialDate.plusDays(1);
+        log.warn("No suitable alternative found within 7 days (all dates have count > 3). Falling back to: {}",
+                fallbackDate);
+        return fallbackDate;
     }
 
     private double calculateWordFactor(double dailyWordCount) {
@@ -174,6 +224,9 @@ public class RepetitionScheduleManager {
     private double calculateBaseInterval(int reviewIndex, int adjustedCycleCount, double wordFactor) {
         final int baseMultiplier = reviewIndex < REVIEW_MULTIPLIERS.length ? REVIEW_MULTIPLIERS[reviewIndex]
                 : REVIEW_MULTIPLIERS[REVIEW_MULTIPLIERS.length - 1];
+        if (adjustedCycleCount >= 3 && reviewIndex >= 2) {
+            return Math.sqrt(adjustedCycleCount * baseMultiplier) * wordFactor * 5;
+        }
         return wordFactor * Math.min(MAX_INTERVAL_DAYS, adjustedCycleCount * baseMultiplier);
     }
 
