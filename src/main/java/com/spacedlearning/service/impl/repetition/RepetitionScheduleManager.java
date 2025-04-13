@@ -77,19 +77,18 @@ public class RepetitionScheduleManager {
             return;
         }
 
-        log.info("Rescheduling {} future repetitions based on new date: {}", futureRepetitions.size(), newStartDate);
+        log.info("Rescheduling {} future repetitions based on new date: {}", Optional.of(futureRepetitions.size()), newStartDate);
 
         // Calculate intervals relative to the current repetition
-        final int baseIndex = currentIndex;
         RepetitionOrder.values();
 
         for (final Repetition repetition : futureRepetitions) {
             final int repIndex = getOrderIndex(repetition.getRepetitionOrder());
-            Math.max(1, repIndex - baseIndex);
+            Math.max(1, repIndex - currentIndex);
 
             // Calculate new review date based on spaced repetition intervals
             // Use the review multipliers to maintain proper spacing
-            final int dayOffset = REVIEW_MULTIPLIERS[repIndex] - REVIEW_MULTIPLIERS[baseIndex];
+            final int dayOffset = REVIEW_MULTIPLIERS[repIndex] - REVIEW_MULTIPLIERS[currentIndex];
             final LocalDate newReviewDate = newStartDate.plusDays(dayOffset);
 
             repetition.setReviewDate(newReviewDate);
@@ -111,7 +110,7 @@ public class RepetitionScheduleManager {
     }
 
     public LocalDate calculateReviewDate(ModuleProgress progress, int reviewIndex) {
-        final Integer wordCount = progress.getModule() != null ? progress.getModule().getWordCount() : 0;
+        final Integer wordCount = progress.getModule() != null ? progress.getModule().getWordCount() : (Integer) 0;
         final double dailyWordCount = Math.max(MIN_DAILY_WORDS, wordCount > 0 ? wordCount : BASE_DAILY_WORDS);
         final int studyCycleCount = getStudyCycleCount(progress.getCyclesStudied());
         final BigDecimal percentComplete = progress.getPercentComplete();
@@ -145,8 +144,9 @@ public class RepetitionScheduleManager {
             return initialDate;
         }
 
-        log.warn("Initial date {} is overloaded (count={}). Searching alternatives...", initialDate, repetitionCount);
+        log.warn("Initial date {} is overloaded (count={}). Searching alternatives...", Optional.of(Optional.of(Optional.ofNullable(initialDate))), Optional.of(repetitionCount));
         for (int i = 1; i <= 7; i++) {
+            assert initialDate != null;
             final LocalDate candidateDate = initialDate.plusDays(i);
             if (getRepetitionCount(candidateDate) <= 3) {
                 log.info("Found suitable alternative date: {}", candidateDate);

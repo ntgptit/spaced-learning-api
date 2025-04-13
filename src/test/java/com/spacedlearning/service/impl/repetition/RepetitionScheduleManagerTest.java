@@ -40,14 +40,13 @@ class RepetitionScheduleManagerTest {
     private RepetitionScheduleManager scheduleManager;
 
     private ModuleProgress progress;
-    private Module module;
     private LocalDate today;
 
     @BeforeEach
     void setUp() {
         today = LocalDate.now();
-        module = new Module();
-        module.setWordCount(100);
+        Module module = new Module();
+        module.setWordCount(Integer.valueOf(100));
 
         progress = new ModuleProgress();
         progress.setId(java.util.UUID.randomUUID());
@@ -99,9 +98,9 @@ class RepetitionScheduleManagerTest {
     @Test
     void checkAndUpdateCycleStudied_ShouldUpdateCycleWhenAllCompleted() {
         when(repetitionRepository.countByModuleProgressId(any(java.util.UUID.class)))
-                .thenReturn(6L);
+                .thenReturn(Long.valueOf(6L));
         when(repetitionRepository.countByModuleProgressIdAndStatus(any(java.util.UUID.class),
-                any())).thenReturn(6L);
+                any())).thenReturn(Long.valueOf(6L));
         when(repetitionRepository
                 .findByModuleProgressIdOrderByRepetitionOrder(any(java.util.UUID.class)))
                         .thenReturn(List.of());
