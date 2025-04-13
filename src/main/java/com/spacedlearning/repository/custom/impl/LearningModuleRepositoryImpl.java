@@ -33,7 +33,6 @@ public class LearningModuleRepositoryImpl implements LearningModuleRepository {
                     mp.next_study_date AS progress_next_study_date,
                     mp.first_learning_date AS progress_first_learning_date,
                     mp.percent_complete AS progress_latest_percent_complete,
-                    msd.modules_on_same_day AS progress_due_task_count, -- 👈 thêm dòng này
                     m.id AS module_id,
                     STRING_AGG(TO_CHAR(r.review_date, 'YYYY-MM-DD'), ', ' ORDER BY r.review_date DESC) AS review_dates
                 FROM
@@ -53,7 +52,7 @@ public class LearningModuleRepositoryImpl implements LearningModuleRepository {
                         AND deleted_at IS NULL
                     GROUP BY
                         next_study_date::date
-                ) msd ON msd.study_date = mp.next_study_date::date -- 👈 join theo ngày học
+                ) msd ON msd.study_date = mp.next_study_date::date
                 LEFT JOIN repetitions r ON
                     r.module_progress_id = mp.id
                     AND r.status = 'COMPLETED'
@@ -88,25 +87,24 @@ public class LearningModuleRepositoryImpl implements LearningModuleRepository {
         @SuppressWarnings("unchecked")
         final List<Object[]> rows = query.getResultList();
 
-        return rows
-                .stream()
-                .map(row -> LearningModuleResponse
-                        .builder()
-                        .bookName(row[0] != null ? row[0].toString() : null)
-                        .bookNo(row[1] != null ? ((Number) row[1]).intValue() : null)
-                        .moduleTitle(row[2] != null ? row[2].toString() : null)
-                        .moduleNo(row[3] != null ? ((Number) row[3]).intValue() : null)
-                        .moduleWordCount(row[4] != null ? ((Number) row[4]).intValue() : null)
-                        .progressCyclesStudied(row[5] != null ? row[5].toString() : null)
-                        .progressNextStudyDate(row[6] != null ? ((java.sql.Date) row[6]).toLocalDate() : null)
-                        .progressFirstLearningDate(row[7] != null ? ((java.sql.Date) row[7]).toLocalDate() : null)
-                        .progressLatestPercentComplete(row[8] != null ? ((Number) row[8]).intValue() : null)
-                        .progressDueTaskCount(row[9] != null ? ((Number) row[9]).intValue() : 0)
-                        .moduleId(row[10] != null ? row[10].toString() : null)
-                        .studyHistory(row[11] != null ? Arrays.asList(StringUtils.split(row[11].toString(), ", "))
+        return rows.stream().map(row -> LearningModuleResponse.builder()
+                .bookName(row[0] != null ? row[0].toString() : null)
+                .bookNo(row[1] != null ? ((Number) row[1]).intValue() : null)
+                .moduleTitle(row[2] != null ? row[2].toString() : null)
+                .moduleNo(row[3] != null ? ((Number) row[3]).intValue() : null)
+                .moduleWordCount(row[4] != null ? ((Number) row[4]).intValue() : null)
+                .progressCyclesStudied(row[5] != null ? row[5].toString() : null)
+                .progressNextStudyDate(
+                        row[6] != null ? ((java.sql.Date) row[6]).toLocalDate() : null)
+                .progressFirstLearningDate(
+                        row[7] != null ? ((java.sql.Date) row[7]).toLocalDate() : null)
+                .progressLatestPercentComplete(row[8] != null ? ((Number) row[8]).intValue() : null)
+                .progressDueTaskCount(row[9] != null ? ((Number) row[9]).intValue() : 0)
+                .moduleId(row[10] != null ? row[10].toString() : null)
+                .studyHistory(
+                        row[11] != null ? Arrays.asList(StringUtils.split(row[11].toString(), ", "))
                                 : List.of())
-                        .build())
-                .toList();
+                .build()).toList();
 
     }
 
