@@ -51,7 +51,7 @@ public class LearningModuleRepositoryImpl implements LearningModuleRepository {
                     STRING_AGG(TO_CHAR(r.review_date, 'YYYY-MM-DD'), ', ' ORDER BY r.review_date DESC) AS review_dates
                 FROM
                     spaced_learning.modules m
-                INNER JOIN books b ON
+                INNER JOIN spaced_learning.books b ON
                     b.id = m.book_id
                 LEFT JOIN spaced_learning.module_progress mp ON
                     mp.module_id = m.id AND mp.deleted_at IS NULL
