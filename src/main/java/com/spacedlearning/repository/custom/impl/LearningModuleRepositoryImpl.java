@@ -50,24 +50,24 @@ public class LearningModuleRepositoryImpl implements LearningModuleRepository {
                     m.id AS module_id,
                     STRING_AGG(TO_CHAR(r.review_date, 'YYYY-MM-DD'), ', ' ORDER BY r.review_date DESC) AS review_dates
                 FROM
-                    modules m
+                    spaced_learning.modules m
                 INNER JOIN books b ON
                     b.id = m.book_id
-                LEFT JOIN module_progress mp ON
+                LEFT JOIN spaced_learning.module_progress mp ON
                     mp.module_id = m.id AND mp.deleted_at IS NULL
                 LEFT JOIN (
                     SELECT
                         next_study_date::date AS study_date,
                         COUNT(*) AS modules_on_same_day
                     FROM
-                        module_progress
+                        spaced_learning.module_progress
                     WHERE
                         next_study_date IS NOT NULL
                         AND deleted_at IS NULL
                     GROUP BY
                         next_study_date::date
                 ) msd ON msd.study_date = mp.next_study_date::date
-                LEFT JOIN repetitions r ON
+                LEFT JOIN spaced_learning.repetitions r ON
                     r.module_progress_id = mp.id
                     AND r.status = 'COMPLETED'
                     AND r.review_date IS NOT NULL
