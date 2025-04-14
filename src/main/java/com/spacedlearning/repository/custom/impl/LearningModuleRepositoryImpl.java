@@ -19,6 +19,19 @@ public class LearningModuleRepositoryImpl implements LearningModuleRepository {
     @PersistenceContext
     private EntityManager entityManager;
 
+    private static final int IDX_BOOK_NAME = 0;
+    private static final int IDX_BOOK_NO = 1;
+    private static final int IDX_MODULE_TITLE = 2;
+    private static final int IDX_MODULE_NO = 3;
+    private static final int IDX_MODULE_WORD_COUNT = 4;
+    private static final int IDX_CYCLES_STUDIED = 5;
+    private static final int IDX_NEXT_STUDY_DATE = 6;
+    private static final int IDX_FIRST_LEARNING_DATE = 7;
+    private static final int IDX_PERCENT_COMPLETE = 8;
+    private static final int IDX_DUE_TASK_COUNT = 9;
+    private static final int IDX_MODULE_ID = 10;
+    private static final int IDX_REVIEW_DATES = 11;
+
     @Override
     public List<LearningModuleResponse> findModuleStudyProgress(int offset, int limit) {
 
@@ -33,6 +46,7 @@ public class LearningModuleRepositoryImpl implements LearningModuleRepository {
                     mp.next_study_date AS progress_next_study_date,
                     mp.first_learning_date AS progress_first_learning_date,
                     mp.percent_complete AS progress_latest_percent_complete,
+                    msd.modules_on_same_day AS progress_due_task_count,
                     m.id AS module_id,
                     STRING_AGG(TO_CHAR(r.review_date, 'YYYY-MM-DD'), ', ' ORDER BY r.review_date DESC) AS review_dates
                 FROM
@@ -78,7 +92,7 @@ public class LearningModuleRepositoryImpl implements LearningModuleRepository {
                     m.word_count,
                     b.book_no DESC,
                     m.module_no;
-                                """;
+                """;
 
         final Query query = entityManager.createNativeQuery(sql);
         query.setFirstResult(offset);
@@ -87,22 +101,29 @@ public class LearningModuleRepositoryImpl implements LearningModuleRepository {
         @SuppressWarnings("unchecked")
         final List<Object[]> rows = query.getResultList();
 
-        return rows.stream().map(row -> LearningModuleResponse.builder()
-                .bookName(row[0] != null ? row[0].toString() : null)
-                .bookNo(row[1] != null ? ((Number) row[1]).intValue() : null)
-                .moduleTitle(row[2] != null ? row[2].toString() : null)
-                .moduleNo(row[3] != null ? ((Number) row[3]).intValue() : null)
-                .moduleWordCount(row[4] != null ? ((Number) row[4]).intValue() : null)
-                .progressCyclesStudied(row[5] != null ? row[5].toString() : null)
+        return rows.stream().map(row -> LearningModuleResponse
+                .builder()
+                .bookName(row[IDX_BOOK_NAME] != null ? row[IDX_BOOK_NAME].toString() : null)
+                .bookNo(row[IDX_BOOK_NO] != null ? ((Number) row[IDX_BOOK_NO]).intValue() : null)
+                .moduleTitle(row[IDX_MODULE_TITLE] != null ? row[IDX_MODULE_TITLE].toString() : null)
+                .moduleNo(row[IDX_MODULE_NO] != null ? ((Number) row[IDX_MODULE_NO]).intValue() : null)
+                .moduleWordCount(row[IDX_MODULE_WORD_COUNT] != null ? ((Number) row[IDX_MODULE_WORD_COUNT]).intValue()
+                        : null)
+                .progressCyclesStudied(row[IDX_CYCLES_STUDIED] != null ? row[IDX_CYCLES_STUDIED].toString() : null)
                 .progressNextStudyDate(
-                        row[6] != null ? ((java.sql.Date) row[6]).toLocalDate() : null)
+                        row[IDX_NEXT_STUDY_DATE] != null ? ((java.sql.Date) row[IDX_NEXT_STUDY_DATE]).toLocalDate()
+                                : null)
                 .progressFirstLearningDate(
-                        row[7] != null ? ((java.sql.Date) row[7]).toLocalDate() : null)
-                .progressLatestPercentComplete(row[8] != null ? ((Number) row[8]).intValue() : null)
-                .progressDueTaskCount(row[9] != null ? ((Number) row[9]).intValue() : 0)
-                .moduleId(row[10] != null ? row[10].toString() : null)
+                        row[IDX_FIRST_LEARNING_DATE] != null ? ((java.sql.Date) row[IDX_FIRST_LEARNING_DATE])
+                                .toLocalDate() : null)
+                .progressLatestPercentComplete(row[IDX_PERCENT_COMPLETE] != null ? ((Number) row[IDX_PERCENT_COMPLETE])
+                        .intValue() : null)
+                .progressDueTaskCount(row[IDX_DUE_TASK_COUNT] != null ? ((Number) row[IDX_DUE_TASK_COUNT]).intValue()
+                        : 0)
+                .moduleId(row[IDX_MODULE_ID] != null ? row[IDX_MODULE_ID].toString() : null)
                 .studyHistory(
-                        row[11] != null ? Arrays.asList(StringUtils.split(row[11].toString(), ", "))
+                        row[IDX_REVIEW_DATES] != null ? Arrays
+                                .asList(StringUtils.split(row[IDX_REVIEW_DATES].toString(), ", "))
                                 : List.of())
                 .build()).toList();
 
