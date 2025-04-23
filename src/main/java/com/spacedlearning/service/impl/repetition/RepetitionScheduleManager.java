@@ -1,16 +1,5 @@
 package com.spacedlearning.service.impl.repetition;
 
-import java.math.BigDecimal;
-import java.time.LocalDate;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.stream.Collectors;
-
-import org.springframework.stereotype.Component;
-
 import com.spacedlearning.entity.ModuleProgress;
 import com.spacedlearning.entity.Repetition;
 import com.spacedlearning.entity.enums.CycleStudied;
@@ -18,9 +7,14 @@ import com.spacedlearning.entity.enums.RepetitionOrder;
 import com.spacedlearning.entity.enums.RepetitionStatus;
 import com.spacedlearning.repository.ModuleProgressRepository;
 import com.spacedlearning.repository.RepetitionRepository;
-
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Component;
+
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.util.*;
+import java.util.stream.Collectors;
 
 //New class to handle scheduling logic
 @Component
@@ -30,7 +24,7 @@ public class RepetitionScheduleManager {
 
     // Base parameters for spaced repetition algorithm
     private static final double BASE_DAILY_WORDS = 41.7;
-    private static final int[] REVIEW_MULTIPLIERS = { 2, 4, 8, 13, 19, 26 };
+    private static final int[] REVIEW_MULTIPLIERS = {2, 4, 8, 13, 19, 26};
     private static final int MAX_WORD_FACTOR = 3;
     private static final int MAX_INTERVAL_DAYS = 31;
     private static final int MIN_DAILY_WORDS = 20;
@@ -169,12 +163,11 @@ public class RepetitionScheduleManager {
             throw new IllegalArgumentException("Initial date cannot be null");
         }
 
-        final LocalDate startDate = initialDate;
         final LocalDate endDate = initialDate.plusDays(7);
 
-        final List<Object[]> dateCountsList = repetitionRepository.countReviewDatesBetween(startDate, endDate);
+        final List<Object[]> dateCountsList = repetitionRepository.countReviewDatesBetween(initialDate, endDate);
         if (dateCountsList == null || dateCountsList.isEmpty()) {
-            log.warn("No repetition counts available for range {} to {}. Using initial date.", startDate, endDate);
+            log.warn("No repetition counts available for range {} to {}. Using initial date.", initialDate, endDate);
             return initialDate;
         }
 
@@ -299,18 +292,13 @@ public class RepetitionScheduleManager {
     }
 
     private CycleStudied getNextCycle(CycleStudied current) {
-        switch (current) {
-        case FIRST_TIME:
-            return CycleStudied.FIRST_REVIEW;
-        case FIRST_REVIEW:
-            return CycleStudied.SECOND_REVIEW;
-        case SECOND_REVIEW:
-            return CycleStudied.THIRD_REVIEW;
-        case THIRD_REVIEW:
-            return CycleStudied.MORE_THAN_THREE_REVIEWS;
-        default:
-            return current;
-        }
+        return switch (current) {
+            case FIRST_TIME -> CycleStudied.FIRST_REVIEW;
+            case FIRST_REVIEW -> CycleStudied.SECOND_REVIEW;
+            case SECOND_REVIEW -> CycleStudied.THIRD_REVIEW;
+            case THIRD_REVIEW -> CycleStudied.MORE_THAN_THREE_REVIEWS;
+            default -> current;
+        };
     }
 
     private void createNewRepetitionCycle(ModuleProgress progress) {
@@ -344,17 +332,11 @@ public class RepetitionScheduleManager {
         if (cyclesStudied == null) {
             return 0;
         }
-        switch (cyclesStudied) {
-        case FIRST_TIME:
-            return 0;
-        case FIRST_REVIEW:
-            return 1;
-        case SECOND_REVIEW:
-            return 2;
-        case THIRD_REVIEW, MORE_THAN_THREE_REVIEWS:
-            return 3;
-        default:
-            return 0;
-        }
+        return switch (cyclesStudied) {
+            case FIRST_REVIEW -> 1;
+            case SECOND_REVIEW -> 2;
+            case THIRD_REVIEW, MORE_THAN_THREE_REVIEWS -> 3;
+            default -> 0;
+        };
     }
 }

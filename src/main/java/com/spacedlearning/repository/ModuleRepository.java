@@ -1,9 +1,6 @@
 package com.spacedlearning.repository;
 
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
-
+import com.spacedlearning.entity.Module;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
@@ -12,22 +9,15 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
-import com.spacedlearning.entity.Module;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
 
 /**
  * Repository for Module entity with optimized queries
  */
 @Repository
 public interface ModuleRepository extends JpaRepository<Module, UUID> {
-
-    /**
-     * Count modules by book ID
-     *
-     * @param bookId Book ID
-     * @return Number of modules
-     */
-    @Query("SELECT COUNT(m) FROM Module m WHERE m.book.id = :bookId")
-    long countByBookId(@Param("bookId") UUID bookId);
 
     /**
      * Check if a module with the given number exists for a book
@@ -46,15 +36,6 @@ public interface ModuleRepository extends JpaRepository<Module, UUID> {
      * @return Page of modules
      */
     Page<Module> findByBookId(UUID bookId, Pageable pageable);
-
-    /**
-     * Find module by book ID and module number
-     *
-     * @param bookId   Book ID
-     * @param moduleNo Module number
-     * @return Optional containing the module
-     */
-    Optional<Module> findByBookIdAndModuleNo(UUID bookId, Integer moduleNo);
 
     /**
      * Find modules by book ID
@@ -79,13 +60,12 @@ public interface ModuleRepository extends JpaRepository<Module, UUID> {
      * @param id Module ID
      * @return Optional containing module with progress
      */
-    @EntityGraph(attributePaths = { "progress" })
+    @EntityGraph(attributePaths = {"progress"})
     Optional<Module> findWithProgressById(UUID id);
 
     /**
      * Count total modules
      *
-     * @param userId User ID
      * @return Total number of modules
      */
     @Query(value = """
@@ -104,7 +84,6 @@ public interface ModuleRepository extends JpaRepository<Module, UUID> {
     /**
      * Get total word count for a user
      *
-     * @param userId User ID
      * @return Total word count
      */
     @Query(value = """
@@ -119,7 +98,6 @@ public interface ModuleRepository extends JpaRepository<Module, UUID> {
     /**
      * Get total learned word count for a user based on module progress
      *
-     * @param userId User ID
      * @return Total learned word count
      */
     @Query(value = """
@@ -239,7 +217,6 @@ public interface ModuleRepository extends JpaRepository<Module, UUID> {
     /**
      * Count total words in modules due today for a user
      *
-     * @param userId User ID
      * @return Total word count for modules due today
      */
     @Query(value = """
@@ -267,7 +244,6 @@ public interface ModuleRepository extends JpaRepository<Module, UUID> {
     /**
      * Count total words in modules due this week for a user
      *
-     * @param userId User ID
      * @return Total word count for modules due this week
      */
     @Query(value = """
@@ -292,7 +268,6 @@ public interface ModuleRepository extends JpaRepository<Module, UUID> {
     /**
      * Count total words in modules due this month for a user
      *
-     * @param userId User ID
      * @return Total word count for modules due this month
      */
     @Query(value = """
@@ -317,7 +292,6 @@ public interface ModuleRepository extends JpaRepository<Module, UUID> {
     /**
      * Count repetitions completed today for a user
      *
-     * @param userId User ID
      * @return Number of repetitions completed today
      */
     @Query(value = """
@@ -343,7 +317,6 @@ public interface ModuleRepository extends JpaRepository<Module, UUID> {
     /**
      * Count total words completed today for a user
      *
-     * @param userId User ID
      * @return Total word count for modules completed today
      */
     @Query(value = """

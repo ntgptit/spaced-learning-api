@@ -1,28 +1,22 @@
 package com.spacedlearning.security;
 
-import java.nio.charset.StandardCharsets;
-import java.security.SecureRandom;
-import java.util.Base64;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Optional;
-import java.util.stream.Collectors;
-
-import javax.crypto.SecretKey;
-
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.GrantedAuthority;
-import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.stereotype.Component;
-
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.security.Keys;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.stereotype.Component;
+
+import javax.crypto.SecretKey;
+import java.nio.charset.StandardCharsets;
+import java.security.SecureRandom;
+import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * Provider for JWT token operations. Handles token generation, validation, and
@@ -32,24 +26,20 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class JwtTokenProvider {
 
-    @Value("${jwt.secret}")
-    private String jwtSecret;
-
-    @Value("${jwt.expiration}")
-    private long jwtExpiration;
-
-    @Value("${jwt.refresh.expiration:604800000}") // Default 7 days
-    private long refreshTokenExpiration;
-
-    @Value("${jwt.issuer:kardio-api}")
-    private String jwtIssuer;
-
     private static final String AUTHORITIES_KEY = "roles";
     private static final String TOKEN_TYPE_KEY = "type";
     private static final String TOKEN_TYPE_ACCESS = "access";
     private static final String TOKEN_TYPE_REFRESH = "refresh";
     private static final String TOKEN_ID_KEY = "jti";
     private static final SecureRandom secureRandom = new SecureRandom();
+    @Value("${jwt.secret}")
+    private String jwtSecret;
+    @Value("${jwt.expiration}")
+    private long jwtExpiration;
+    @Value("${jwt.refresh.expiration:604800000}") // Default 7 days
+    private long refreshTokenExpiration;
+    @Value("${jwt.issuer:kardio-api}")
+    private String jwtIssuer;
 
     /**
      * Generates a JWT token for the given authentication.
@@ -60,10 +50,10 @@ public class JwtTokenProvider {
     public String generateToken(Authentication authentication) {
         final UserDetails userDetails = (UserDetails) authentication.getPrincipal();
 
-		// Extract authorities as a comma-separated string, safely handling null
-		final String authorities = Optional.ofNullable(authentication.getAuthorities())
-				.map(auths -> auths.stream().map(GrantedAuthority::getAuthority).collect(Collectors.joining(",")))
-				.orElse("");
+        // Extract authorities as a comma-separated string, safely handling null
+        final String authorities = Optional.ofNullable(authentication.getAuthorities())
+                .map(auths -> auths.stream().map(GrantedAuthority::getAuthority).collect(Collectors.joining(",")))
+                .orElse("");
 
         // Add authorities to claims
         final Map<String, Object> claims = new HashMap<>();
@@ -104,14 +94,14 @@ public class JwtTokenProvider {
         log.debug("Generating JWT access token for user: {}", userDetails.getUsername());
 
         return Jwts
-            .builder()
-            .setClaims(extraClaims)
-            .setSubject(userDetails.getUsername())
-            .setIssuedAt(now)
-            .setExpiration(expiryDate)
-            .setIssuer(jwtIssuer)
-            .signWith(getSigningKey(), SignatureAlgorithm.HS512)
-            .compact();
+                .builder()
+                .setClaims(extraClaims)
+                .setSubject(userDetails.getUsername())
+                .setIssuedAt(now)
+                .setExpiration(expiryDate)
+                .setIssuer(jwtIssuer)
+                .signWith(getSigningKey(), SignatureAlgorithm.HS512)
+                .compact();
     }
 
     /**
@@ -128,14 +118,14 @@ public class JwtTokenProvider {
         log.debug("Generating JWT refresh token for user: {}", userDetails.getUsername());
 
         return Jwts
-            .builder()
-            .setClaims(extraClaims)
-            .setSubject(userDetails.getUsername())
-            .setIssuedAt(now)
-            .setExpiration(expiryDate)
-            .setIssuer(jwtIssuer)
-            .signWith(getSigningKey(), SignatureAlgorithm.HS512)
-            .compact();
+                .builder()
+                .setClaims(extraClaims)
+                .setSubject(userDetails.getUsername())
+                .setIssuedAt(now)
+                .setExpiration(expiryDate)
+                .setIssuer(jwtIssuer)
+                .signWith(getSigningKey(), SignatureAlgorithm.HS512)
+                .compact();
     }
 
     /**
@@ -168,17 +158,6 @@ public class JwtTokenProvider {
     public boolean isRefreshToken(String token) {
         final Claims claims = getAllClaimsFromToken(token);
         return TOKEN_TYPE_REFRESH.equals(claims.get(TOKEN_TYPE_KEY));
-    }
-
-    /**
-     * Get the token ID from a JWT token.
-     *
-     * @param token The JWT token
-     * @return The token ID
-     */
-    public String getTokenId(String token) {
-        final Claims claims = getAllClaimsFromToken(token);
-        return claims.get(TOKEN_ID_KEY, String.class);
     }
 
     /**

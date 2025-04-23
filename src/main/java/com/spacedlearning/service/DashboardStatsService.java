@@ -1,13 +1,14 @@
 package com.spacedlearning.service;
 
-import java.util.UUID;
 import com.spacedlearning.dto.stats.UserLearningStatsDTO;
+
+import java.util.UUID;
 
 /**
  * Service for calculating dashboard statistics
  */
 public interface DashboardStatsService {
 
-    public UserLearningStatsDTO getDashboardStats(final UUID userId);
+    UserLearningStatsDTO getDashboardStats(final UUID userId);
 
 }

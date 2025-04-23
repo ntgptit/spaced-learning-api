@@ -1,14 +1,5 @@
 package com.spacedlearning.service.impl;
 
-import java.time.LocalDate;
-import java.util.Optional;
-import java.util.UUID;
-
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
 import com.spacedlearning.dto.progress.ModuleProgressCreateRequest;
 import com.spacedlearning.dto.progress.ModuleProgressDetailResponse;
 import com.spacedlearning.dto.progress.ModuleProgressSummaryResponse;
@@ -21,9 +12,16 @@ import com.spacedlearning.repository.ModuleProgressRepository;
 import com.spacedlearning.repository.ModuleRepository;
 import com.spacedlearning.service.ModuleProgressService;
 import com.spacedlearning.service.RepetitionService;
-
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDate;
+import java.util.Optional;
+import java.util.UUID;
 
 /**
  * Implementation of ModuleProgressService
@@ -33,6 +31,8 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class ModuleProgressServiceImpl implements ModuleProgressService {
 
+    public static final String MODULE = "Module";
+    public static final String MODULE_PROGRESS = "ModuleProgress";
     private final ModuleProgressRepository progressRepository;
     private final ModuleRepository moduleRepository;
     private final ModuleProgressMapper progressMapper;
@@ -45,11 +45,11 @@ public class ModuleProgressServiceImpl implements ModuleProgressService {
 
         // Validate module existence
         final Module module = moduleRepository.findById(request.getModuleId())
-                .orElseThrow(() -> SpacedLearningException.resourceNotFound("Module", request.getModuleId()));
+                .orElseThrow(() -> SpacedLearningException.resourceNotFound(MODULE, request.getModuleId()));
 
         // Check if progress already exists for module
         if (progressRepository.existsByModuleId(request.getModuleId())) {
-            throw SpacedLearningException.resourceAlreadyExists("ModuleProgress", "module_id", request.getModuleId()
+            throw SpacedLearningException.resourceAlreadyExists(MODULE_PROGRESS, "module_id", request.getModuleId()
                     .toString());
         }
 
@@ -71,7 +71,7 @@ public class ModuleProgressServiceImpl implements ModuleProgressService {
         log.debug("Deleting module progress with ID: {}", id);
 
         final ModuleProgress progress = progressRepository.findById(id)
-                .orElseThrow(() -> SpacedLearningException.resourceNotFound("ModuleProgress", id));
+                .orElseThrow(() -> SpacedLearningException.resourceNotFound(MODULE_PROGRESS, id));
 
         progress.softDelete(); // Use soft delete
         progressRepository.save(progress);
@@ -84,7 +84,7 @@ public class ModuleProgressServiceImpl implements ModuleProgressService {
     public Page<ModuleProgressSummaryResponse> findAll(Pageable pageable) {
         log.debug("Finding all module progress with pagination: {}", pageable);
         return progressRepository.findAll(pageable)
-                .map(progress -> progressMapper.toSummaryDto(progress));
+                .map(progressMapper::toSummaryDto);
     }
 
     @Override
@@ -92,7 +92,7 @@ public class ModuleProgressServiceImpl implements ModuleProgressService {
     public ModuleProgressDetailResponse findById(UUID id) {
         log.debug("Finding module progress by ID: {}", id);
         final ModuleProgress progress = progressRepository.findWithRepetitionsById(id)
-                .orElseThrow(() -> SpacedLearningException.resourceNotFound("ModuleProgress", id));
+                .orElseThrow(() -> SpacedLearningException.resourceNotFound(MODULE_PROGRESS, id));
         return progressMapper.toDto(progress);
     }
 
@@ -102,11 +102,11 @@ public class ModuleProgressServiceImpl implements ModuleProgressService {
         log.debug("Finding module progress by module ID: {}, pageable: {}", moduleId, pageable);
         // Verify module exists
         if (!moduleRepository.existsById(moduleId)) {
-            throw SpacedLearningException.resourceNotFound("Module", moduleId);
+            throw SpacedLearningException.resourceNotFound(MODULE, moduleId);
         }
 
         return progressRepository.findByModuleId(moduleId, pageable)
-                .map(progress -> progressMapper.toSummaryDto(progress));
+                .map(progressMapper::toSummaryDto);
     }
 
     @Override
@@ -115,7 +115,7 @@ public class ModuleProgressServiceImpl implements ModuleProgressService {
         log.debug("Finding module progress by book ID: {}, pageable: {}", bookId, pageable);
 
         return progressRepository.findByBookId(bookId, pageable)
-                .map(progress -> progressMapper.toSummaryDto(progress));
+                .map(progressMapper::toSummaryDto);
     }
 
     @Override
@@ -148,7 +148,7 @@ public class ModuleProgressServiceImpl implements ModuleProgressService {
         log.debug("Updating module progress with ID: {}, request: {}", id, request);
 
         final ModuleProgress progress = progressRepository.findById(id)
-                .orElseThrow(() -> SpacedLearningException.resourceNotFound("ModuleProgress", id));
+                .orElseThrow(() -> SpacedLearningException.resourceNotFound(MODULE_PROGRESS, id));
 
         progressMapper.updateFromDto(request, progress);
         final ModuleProgress updatedProgress = progressRepository.save(progress);
@@ -170,7 +170,7 @@ public class ModuleProgressServiceImpl implements ModuleProgressService {
         }
 
         moduleRepository.findById(moduleId)
-                .orElseThrow(() -> SpacedLearningException.resourceNotFound("Module", moduleId));
+                .orElseThrow(() -> SpacedLearningException.resourceNotFound(MODULE, moduleId));
 
         final ModuleProgressCreateRequest createRequest = ModuleProgressCreateRequest.builder()
                 .moduleId(moduleId)

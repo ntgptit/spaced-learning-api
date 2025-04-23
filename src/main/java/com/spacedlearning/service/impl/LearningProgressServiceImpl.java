@@ -1,15 +1,5 @@
 package com.spacedlearning.service.impl;
 
-import java.time.LocalDate;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-
-import org.springframework.http.HttpStatus;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
 import com.spacedlearning.dto.learning.BookStatsResponse;
 import com.spacedlearning.dto.learning.DashboardStatsResponse;
 import com.spacedlearning.dto.learning.LearningModuleResponse;
@@ -17,20 +7,27 @@ import com.spacedlearning.exception.SpacedLearningException;
 import com.spacedlearning.repository.BookRepository;
 import com.spacedlearning.repository.custom.LearningModuleRepository;
 import com.spacedlearning.service.LearningProgressService;
-
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDate;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class LearningProgressServiceImpl implements LearningProgressService {
 
-    private final BookRepository bookRepository;
-    private final LearningModuleRepository learningModuleRepository;
-
     // Số lượng module mặc định để lấy
     private static final int DEFAULT_PAGE_SIZE = 100;
+    private final BookRepository bookRepository;
+    private final LearningModuleRepository learningModuleRepository;
 
     @Override
     @Transactional(readOnly = true)
@@ -38,10 +35,9 @@ public class LearningProgressServiceImpl implements LearningProgressService {
         log.info("Fetching dashboard stats with bookFilter: {}, dateFilter: {}", bookFilter, dateFilter);
 
         // Lấy tất cả modules (giới hạn 100 để tránh quá tải)
-        final List<LearningModuleResponse> allModules = getAllModules();
 
         // Áp dụng bộ lọc
-        List<LearningModuleResponse> filteredModules = allModules;
+        List<LearningModuleResponse> filteredModules = getAllModules();
 
         if (bookFilter != null && !"All".equals(bookFilter)) {
             filteredModules = filteredModules.stream()
@@ -159,8 +155,8 @@ public class LearningProgressServiceImpl implements LearningProgressService {
         int learnedWords = 0;
 
         for (final LearningModuleResponse module : bookModules) {
-            final Integer wordCount = module.getModuleWordCount() != null ? module.getModuleWordCount() : 0;
-            final Integer percentComplete = module.getProgressLatestPercentComplete() != null
+            final int wordCount = module.getModuleWordCount() != null ? module.getModuleWordCount() : 0;
+            final int percentComplete = module.getProgressLatestPercentComplete() != null
                     ? module.getProgressLatestPercentComplete()
                     : 0;
 

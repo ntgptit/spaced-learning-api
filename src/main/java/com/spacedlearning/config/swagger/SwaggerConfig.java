@@ -1,12 +1,5 @@
 package com.spacedlearning.config.swagger;
 
-import java.util.List;
-
-import org.springdoc.core.models.GroupedOpenApi;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
-
 import io.swagger.v3.oas.models.Components;
 import io.swagger.v3.oas.models.ExternalDocumentation;
 import io.swagger.v3.oas.models.OpenAPI;
@@ -16,6 +9,12 @@ import io.swagger.v3.oas.models.info.License;
 import io.swagger.v3.oas.models.security.SecurityRequirement;
 import io.swagger.v3.oas.models.security.SecurityScheme;
 import io.swagger.v3.oas.models.servers.Server;
+import org.springdoc.core.models.GroupedOpenApi;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+
+import java.util.List;
 
 /**
  * Enhanced Swagger/OpenAPI configuration for API documentation
@@ -23,6 +22,7 @@ import io.swagger.v3.oas.models.servers.Server;
 @Configuration
 public class SwaggerConfig {
 
+    public static final String SPACEDLEARNING_CONTROLLER = "com.spacedlearning.controller";
     @Value("${spring.application.name}")
     private String applicationName;
 
@@ -32,14 +32,6 @@ public class SwaggerConfig {
     @Value("${springdoc.swagger-ui.enabled:true}")
     private boolean swaggerEnabled;
 
-//    @Bean
-//    public OpenAPI customOpenAPI() {
-//        return new OpenAPI()
-//                .info(new Info()
-//                        .title("Spaced Learning API")
-//                        .version("1.0")
-//                        .description("API for spaced repetition learning"));
-//    }
 
     /**
      * Creates a detailed OpenAPI configuration for Swagger documentation.
@@ -87,7 +79,7 @@ public class SwaggerConfig {
         return GroupedOpenApi.builder()
                 .group("User Management")
                 .pathsToMatch("/api/v1/users/**", "/api/v1/auth/**")
-                .packagesToScan("com.spacedlearning.controller")
+                .packagesToScan(SPACEDLEARNING_CONTROLLER)
                 .build();
     }
 
@@ -99,7 +91,7 @@ public class SwaggerConfig {
         return GroupedOpenApi.builder()
                 .group("Book Management") // Thay đổi tên group, loại bỏ khoảng trắng
                 .pathsToMatch("/api/v1/books/**", "/api/v1/modules/**")
-                .packagesToScan("com.spacedlearning.controller")
+                .packagesToScan(SPACEDLEARNING_CONTROLLER)
                 .build();
     }
 
@@ -111,7 +103,7 @@ public class SwaggerConfig {
         return GroupedOpenApi.builder()
                 .group("Learning Progress")
                 .pathsToMatch("/api/v1/progress/**", "/api/v1/repetitions/**", "/api/v1/stats/**")
-                .packagesToScan("com.spacedlearning.controller")
+                .packagesToScan(SPACEDLEARNING_CONTROLLER)
                 .build();
     }
 }

@@ -1,18 +1,6 @@
 // File: src/main/java/com/spacedlearning/service/impl/UserServiceImpl.java
 package com.spacedlearning.service.impl;
 
-import java.util.Optional;
-import java.util.UUID;
-
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.security.core.userdetails.UsernameNotFoundException;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
 import com.spacedlearning.dto.user.UserDetailedResponse;
 import com.spacedlearning.dto.user.UserResponse;
 import com.spacedlearning.dto.user.UserUpdateRequest;
@@ -22,9 +10,17 @@ import com.spacedlearning.mapper.UserMapper;
 import com.spacedlearning.repository.UserRepository;
 import com.spacedlearning.security.CustomUserDetailsService;
 import com.spacedlearning.service.UserService;
-
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.Optional;
+import java.util.UUID;
 
 /**
  * Implementation of UserService
@@ -95,13 +91,6 @@ public class UserServiceImpl implements UserService {
         log.debug("Getting current user with email: {}", email);
 
         return findByUsernameOrEmail(email);
-    }
-
-    @Override
-    @Transactional(readOnly = true)
-    public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
-        log.debug("Loading user details by username: {}", username);
-        return userDetailsService.loadUserByUsername(username);
     }
 
     @Override

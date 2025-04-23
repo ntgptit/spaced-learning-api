@@ -1,18 +1,18 @@
 package com.spacedlearning.entity.enums;
 
+import lombok.Getter;
+
 /**
  * Enum representing possible user statuses.
  */
+@Getter
 public enum UserStatus {
-	ACTIVE("ACTIVE"), INACTIVE("INACTIVE"), SUSPENDED("SUSPENDED");
+    ACTIVE("ACTIVE"), INACTIVE("INACTIVE"), SUSPENDED("SUSPENDED");
 
-	private final String value;
+    private final String value;
 
-	UserStatus(String value) {
-		this.value = value;
-	}
+    UserStatus(String value) {
+        this.value = value;
+    }
 
-	public String getValue() {
-		return value;
-	}
 }

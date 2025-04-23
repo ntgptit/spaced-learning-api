@@ -1,14 +1,5 @@
 package com.spacedlearning.service.impl;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Objects;
-import java.util.UUID;
-import java.util.stream.Collectors;
-
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
 import com.spacedlearning.dto.book.BookSummaryResponse;
 import com.spacedlearning.dto.user_books.UserBookShareInfo;
 import com.spacedlearning.dto.user_books.UserShareDetail;
@@ -19,9 +10,15 @@ import com.spacedlearning.mapper.BookMapper;
 import com.spacedlearning.repository.BookRepository;
 import com.spacedlearning.repository.UserRepository;
 import com.spacedlearning.service.UserBookService;
-
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Objects;
+import java.util.UUID;
 
 /**
  * Implementation of UserBookService
@@ -47,7 +44,7 @@ public class UserBookServiceImpl implements UserBookService {
         return user.getBooks().stream()
                 .filter(book -> !book.isDeleted())
                 .map(bookMapper::toSummaryDto)
-                .collect(Collectors.toList());
+                .toList();
     }
 
     @Override
@@ -75,7 +72,7 @@ public class UserBookServiceImpl implements UserBookService {
                             detail.setEmail(user.getEmail());
                             return detail;
                         })
-                        .collect(Collectors.toList());
+                        .toList();
 
                 shareInfo.setSharedWith(userDetails);
                 result.add(shareInfo);

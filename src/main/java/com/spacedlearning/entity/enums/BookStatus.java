@@ -3,6 +3,9 @@ package com.spacedlearning.entity.enums;
 /**
  * Enum representing possible book statuses.
  */
+
+import lombok.Getter;
+
 /**
  * Enum representing the status of a book.
  * <p>
@@ -13,19 +16,17 @@ package com.spacedlearning.entity.enums;
  * <li>{@link #ARCHIVED} - Indicates that the book is archived and no longer actively used.</li>
  * </ul>
  */
+@Getter
 public enum BookStatus {
-	PUBLISHED("PUBLISHED"), DRAFT("DRAFT"), ARCHIVED("ARCHIVED");
+    PUBLISHED("PUBLISHED"), DRAFT("DRAFT"), ARCHIVED("ARCHIVED");
 
-	/**
-	 * The string representation of the book status.
-	 */
-	private final String value;
+    /**
+     * The string representation of the book status.
+     */
+    private final String value;
 
-	BookStatus(String value) {
-		this.value = value;
-	}
+    BookStatus(String value) {
+        this.value = value;
+    }
 
-	public String getValue() {
-		return value;
-	}
 }

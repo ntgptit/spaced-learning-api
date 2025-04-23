@@ -1,20 +1,5 @@
 package com.spacedlearning.service.impl;
 
-import java.math.BigDecimal;
-import java.math.RoundingMode;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Optional;
-import java.util.UUID;
-
-import org.springframework.context.MessageSource;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
 import com.spacedlearning.dto.stats.UserLearningStatsDTO;
 import com.spacedlearning.entity.UserStatistics;
 import com.spacedlearning.exception.SpacedLearningException;
@@ -22,9 +7,17 @@ import com.spacedlearning.repository.ModuleRepository;
 import com.spacedlearning.repository.UserRepository;
 import com.spacedlearning.repository.UserStatisticsRepository;
 import com.spacedlearning.service.DashboardStatsService;
-
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.MessageSource;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.*;
 
 @Service
 @Slf4j
@@ -132,7 +125,7 @@ public class DashboardStatsServiceImpl implements DashboardStatsService {
 
         for (final Object[] row : moduleCycleStats) {
             final String cycleName = (String) row[0];
-            final Integer count = ((Number) row[1]).intValue();
+            final int count = ((Number) row[1]).intValue();
             cycleCounts.put(cycleName, count);
             totalStudied += count;
         }
@@ -207,6 +200,6 @@ public class DashboardStatsServiceImpl implements DashboardStatsService {
     }
 
     private record VocabularyStats(int totalWords, int learnedWords, int pendingWords,
-            BigDecimal completionRate) {
+                                   BigDecimal completionRate) {
     }
 }

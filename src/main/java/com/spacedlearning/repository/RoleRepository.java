@@ -1,11 +1,10 @@
 package com.spacedlearning.repository;
 
-import java.util.Optional;
-
+import com.spacedlearning.entity.Role;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
-import com.spacedlearning.entity.Role;
+import java.util.Optional;
 
 /**
  * Repository for Role entity.
@@ -13,19 +12,11 @@ import com.spacedlearning.entity.Role;
 @Repository
 public interface RoleRepository extends JpaRepository<Role, Long> {
 
-	/**
-	 * Checks if a role exists with the given name.
-	 *
-	 * @param name The role name
-	 * @return true if a role exists, false otherwise
-	 */
-	boolean existsByName(String name);
-
-	/**
-	 * Finds a role by name.
-	 *
-	 * @param name The role name
-	 * @return An Optional containing the role if found
-	 */
-	Optional<Role> findByName(String name);
+    /**
+     * Finds a role by name.
+     *
+     * @param name The role name
+     * @return An Optional containing the role if found
+     */
+    Optional<Role> findByName(String name);
 }

@@ -1,15 +1,5 @@
 package com.spacedlearning.service.impl;
 
-import java.time.LocalDate;
-import java.util.List;
-import java.util.Objects;
-import java.util.UUID;
-
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
 import com.spacedlearning.dto.repetition.RepetitionCreateRequest;
 import com.spacedlearning.dto.repetition.RepetitionResponse;
 import com.spacedlearning.dto.repetition.RepetitionUpdateRequest;
@@ -23,15 +13,25 @@ import com.spacedlearning.repository.RepetitionRepository;
 import com.spacedlearning.service.RepetitionService;
 import com.spacedlearning.service.impl.repetition.RepetitionScheduleManager;
 import com.spacedlearning.service.impl.repetition.RepetitionValidator;
-
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDate;
+import java.util.List;
+import java.util.Objects;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class RepetitionServiceImpl implements RepetitionService {
 
+    public static final String MODULE_PROGRESS_ID_MUST_NOT_BE_NULL = "Module progress ID must not be null";
+    public static final String REPETITION_ID_MUST_NOT_BE_NULL = "Repetition ID must not be null";
     private final RepetitionRepository repetitionRepository;
     private final RepetitionMapper repetitionMapper;
     private final RepetitionScheduleManager scheduleManager;
@@ -57,7 +57,7 @@ public class RepetitionServiceImpl implements RepetitionService {
     @Override
     @Transactional
     public List<RepetitionResponse> createDefaultSchedule(UUID moduleProgressId) {
-        Objects.requireNonNull(moduleProgressId, "Module progress ID must not be null");
+        Objects.requireNonNull(moduleProgressId, MODULE_PROGRESS_ID_MUST_NOT_BE_NULL);
         log.debug("Creating default repetition schedule for module progress ID: {}", moduleProgressId);
 
         final ModuleProgress progress = validator.findModuleProgress(moduleProgressId);
@@ -82,7 +82,7 @@ public class RepetitionServiceImpl implements RepetitionService {
     @Override
     @Transactional
     public void delete(UUID id) {
-        Objects.requireNonNull(id, "Repetition ID must not be null");
+        Objects.requireNonNull(id, REPETITION_ID_MUST_NOT_BE_NULL);
         log.debug("Deleting repetition with ID: {}", id);
 
         final Repetition repetition = validator.findRepetition(id);
@@ -105,7 +105,7 @@ public class RepetitionServiceImpl implements RepetitionService {
     @Override
     @Transactional(readOnly = true)
     public RepetitionResponse findById(UUID id) {
-        Objects.requireNonNull(id, "Repetition ID must not be null");
+        Objects.requireNonNull(id, REPETITION_ID_MUST_NOT_BE_NULL);
         log.debug("Finding repetition by ID: {}", id);
         final Repetition repetition = validator.findRepetition(id);
         return repetitionMapper.toDto(repetition);
@@ -114,7 +114,7 @@ public class RepetitionServiceImpl implements RepetitionService {
     @Override
     @Transactional(readOnly = true)
     public List<RepetitionResponse> findByModuleProgressId(UUID moduleProgressId) {
-        Objects.requireNonNull(moduleProgressId, "Module progress ID must not be null");
+        Objects.requireNonNull(moduleProgressId, MODULE_PROGRESS_ID_MUST_NOT_BE_NULL);
         log.debug("Finding repetitions by module progress ID: {}", moduleProgressId);
         validator.validateModuleProgressExists(moduleProgressId);
         final List<Repetition> repetitions = repetitionRepository.findByModuleProgressIdOrderByRepetitionOrder(
@@ -125,12 +125,12 @@ public class RepetitionServiceImpl implements RepetitionService {
     @Override
     @Transactional(readOnly = true)
     public RepetitionResponse findByModuleProgressIdAndOrder(UUID moduleProgressId, RepetitionOrder repetitionOrder) {
-        Objects.requireNonNull(moduleProgressId, "Module progress ID must not be null");
+        Objects.requireNonNull(moduleProgressId, MODULE_PROGRESS_ID_MUST_NOT_BE_NULL);
         Objects.requireNonNull(repetitionOrder, "Repetition order must not be null");
         log.debug("Finding repetition by module progress ID: {} and order: {}", moduleProgressId, repetitionOrder);
 
         final Repetition repetition = repetitionRepository.findByModuleProgressIdAndRepetitionOrder(moduleProgressId,
-                repetitionOrder)
+                        repetitionOrder)
                 .orElseThrow(() -> SpacedLearningException.resourceNotFound(
                         "Repetition for ModuleProgress " + moduleProgressId + " and Order " + repetitionOrder, null));
         return repetitionMapper.toDto(repetition);
@@ -139,7 +139,7 @@ public class RepetitionServiceImpl implements RepetitionService {
     @Override
     @Transactional(readOnly = true)
     public Page<RepetitionResponse> findDueRepetitions(UUID userId, LocalDate reviewDate, RepetitionStatus status,
-            Pageable pageable) {
+                                                       Pageable pageable) {
         Objects.requireNonNull(userId, "User ID must not be null");
         Objects.requireNonNull(pageable, "Pageable must not be null");
         log.debug("Finding due repetitions for user ID: {} on or before date: {}, status: {}, pageable: {}",
@@ -154,7 +154,7 @@ public class RepetitionServiceImpl implements RepetitionService {
     @Override
     @Transactional
     public RepetitionResponse update(UUID id, RepetitionUpdateRequest request) {
-        Objects.requireNonNull(id, "Repetition ID must not be null");
+        Objects.requireNonNull(id, REPETITION_ID_MUST_NOT_BE_NULL);
         Objects.requireNonNull(request, "Repetition update request must not be null");
         log.debug("Updating repetition with ID: {}, request: {}", id, request);
 

@@ -1,17 +1,16 @@
 package com.spacedlearning.service;
 
-import java.util.List;
-import java.util.UUID;
-
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
-
 import com.spacedlearning.dto.book.BookCreateRequest;
 import com.spacedlearning.dto.book.BookDetailResponse;
 import com.spacedlearning.dto.book.BookSummaryResponse;
 import com.spacedlearning.dto.book.BookUpdateRequest;
 import com.spacedlearning.entity.enums.BookStatus;
 import com.spacedlearning.entity.enums.DifficultyLevel;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+
+import java.util.List;
+import java.util.UUID;
 
 /**
  * Service interface for Book operations
@@ -51,7 +50,7 @@ public interface BookService {
      * @return Page of book summaries
      */
     Page<BookSummaryResponse> findByFilters(BookStatus status, DifficultyLevel difficultyLevel, String category,
-            Pageable pageable);
+                                            Pageable pageable);
 
     /**
      * Find book by ID
