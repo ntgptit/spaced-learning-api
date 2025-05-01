@@ -1,21 +1,5 @@
 package com.spacedlearning.service.impl.repetition;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-import java.math.BigDecimal;
-import java.time.LocalDate;
-import java.util.List;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
 import com.spacedlearning.entity.Module;
 import com.spacedlearning.entity.ModuleProgress;
 import com.spacedlearning.entity.Repetition;
@@ -24,7 +8,21 @@ import com.spacedlearning.entity.enums.RepetitionOrder;
 import com.spacedlearning.entity.enums.RepetitionStatus;
 import com.spacedlearning.repository.ModuleProgressRepository;
 import com.spacedlearning.repository.RepetitionRepository;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.util.List;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.*;
 
 
 @ExtendWith(MockitoExtension.class)
@@ -103,21 +101,12 @@ class RepetitionScheduleManagerTest {
                 any())).thenReturn(Long.valueOf(6L));
         when(repetitionRepository
                 .findByModuleProgressIdOrderByRepetitionOrder(any(java.util.UUID.class)))
-                        .thenReturn(List.of());
+                .thenReturn(List.of());
 
         scheduleManager.checkAndUpdateCycleStudied(progress);
 
         verify(progressRepository, times(1)).save(progress);
         assertEquals(CycleStudied.FIRST_REVIEW, progress.getCyclesStudied());
-    }
-
-    @Test
-    void calculateReviewDate_ShouldReturnValidDate() {
-        int reviewIndex = 0;
-        LocalDate reviewDate = scheduleManager.calculateReviewDate(progress, reviewIndex);
-
-        assertNotNull(reviewDate);
-        assertTrue(reviewDate.isAfter(today) || reviewDate.isEqual(today));
     }
 
     @Test
@@ -127,7 +116,7 @@ class RepetitionScheduleManagerTest {
 
         when(repetitionRepository
                 .findByModuleProgressIdAndStatusOrderByReviewDate(any(java.util.UUID.class), any()))
-                        .thenReturn(List.of(pendingRepetition));
+                .thenReturn(List.of(pendingRepetition));
 
         scheduleManager.updateNextStudyDate(progress);
 

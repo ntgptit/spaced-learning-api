@@ -19,6 +19,7 @@ import java.util.stream.Collectors;
 
 /**
  * Manages the scheduling and updating of repetition cycles for spaced learning modules.
+ * Responsibilities are separated into scheduling, completion handling, and general management.
  */
 @Component
 @RequiredArgsConstructor
@@ -40,6 +41,8 @@ public class RepetitionScheduleManager {
     private final RepetitionRepository repetitionRepository;
     private final ModuleProgressRepository progressRepository;
 
+    // ----- SCHEDULE MANAGEMENT METHODS -----
+
     private static double getBaseInterval(int reviewIndex, int studyCycleCount, double dailyWordCount) {
         int adjustedCycleCount = Math.max(1, studyCycleCount);
         double wordFactor = Math.min(MAX_WORD_FACTOR, Math.max(dailyWordCount, BASE_DAILY_WORDS) / BASE_DAILY_WORDS);
@@ -51,15 +54,6 @@ public class RepetitionScheduleManager {
             baseInterval = Math.sqrt((double) adjustedCycleCount * baseMultiplier) * wordFactor * 5.0;
         }
         return baseInterval;
-    }
-
-    private boolean validateRepetitionOrder(ModuleProgress progress, RepetitionOrder currentOrder, int currentIndex) {
-        RepetitionOrder[] allOrders = RepetitionOrder.values();
-        if (currentIndex >= allOrders.length - 1) {
-            log.debug("No future orders after {} for progress ID: {}", currentOrder, progress.getId());
-            return true;
-        }
-        return false;
     }
 
     /**
@@ -131,61 +125,32 @@ public class RepetitionScheduleManager {
     }
 
     /**
-     * Reschedules future repetitions based on a new start date.
+     * Updates the next study date for a module progress based on pending repetitions.
      *
-     * @param progress     The module progress containing the repetitions.
-     * @param currentOrder The current repetition order.
-     * @param newStartDate The new start date for rescheduling.
+     * @param progress The module progress to update.
      */
-    public void rescheduleFutureRepetitions(
-            @NonNull ModuleProgress progress,
-            @NonNull RepetitionOrder currentOrder,
-            @NonNull LocalDate newStartDate) {
+    public void updateNextStudyDate(@NonNull ModuleProgress progress) {
+        List<Repetition> pendingRepetitions = repetitionRepository
+                .findByModuleProgressIdAndStatusOrderByReviewDate(progress.getId(), RepetitionStatus.NOT_STARTED);
 
-        int currentIndex = getOrderIndex(currentOrder);
-        if (currentIndex == -1) {
-            log.debug("Invalid order {} for rescheduling for progress ID: {}", currentOrder, progress.getId());
-            return;
-        }
-
-        if (validateRepetitionOrder(progress, currentOrder, currentIndex)) return;
-
-        List<Repetition> futureRepetitions = getFutureRepetitions(progress, currentIndex);
-        if (futureRepetitions.isEmpty()) {
-            log.debug("No future repetitions found to reschedule for progress ID: {}", progress.getId());
-            return;
-        }
-
-        log.info("Rescheduling {} future repetitions based on new date: {} for progress ID: {}",
-                futureRepetitions.size(), newStartDate, progress.getId());
-
-        boolean changed = false;
-        for (Repetition repetition : futureRepetitions) {
-            int repIndex = getOrderIndex(repetition.getRepetitionOrder());
-            if (repIndex < 0 || repIndex >= REVIEW_MULTIPLIERS.length || currentIndex >= REVIEW_MULTIPLIERS.length) {
-                log.error("Invalid index detected during rescheduling. RepIndex: {}, CurrentIndex: {}. Skipping repetition {}.",
-                        repIndex, currentIndex, repetition.getId());
-                continue;
+        if (pendingRepetitions.isEmpty()) {
+            if (progress.getNextStudyDate() != null) {
+                progress.setNextStudyDate(null);
+                progressRepository.save(progress);
+                log.debug("Cleared next study date as no pending repetitions found for progress ID: {}", progress.getId());
             }
-
-            int dayOffset = REVIEW_MULTIPLIERS[repIndex] - REVIEW_MULTIPLIERS[currentIndex];
-            LocalDate newReviewDate = newStartDate.plusDays(dayOffset);
-            if (newReviewDate.equals(repetition.getReviewDate())) {
-                continue;
-            }
-
-            repetition.setReviewDate(newReviewDate);
-            log.debug("Rescheduled repetition {} to {} for progress ID: {}", repetition.getRepetitionOrder(), newReviewDate, progress.getId());
-            changed = true;
-        }
-
-        if (!changed) {
-            log.debug("No dates changed during reschedule for progress ID: {}", progress.getId());
             return;
         }
 
-        repetitionRepository.saveAll(futureRepetitions);
-        updateNextStudyDate(progress);
+        LocalDate newNextStudyDate = pendingRepetitions.get(0).getReviewDate();
+        if (newNextStudyDate.equals(progress.getNextStudyDate())) {
+            log.trace("Next study date {} already up-to-date for progress ID: {}", newNextStudyDate, progress.getId());
+            return;
+        }
+
+        progress.setNextStudyDate(newNextStudyDate);
+        progressRepository.save(progress);
+        log.debug("Updated next study date to {} for progress ID: {}", newNextStudyDate, progress.getId());
     }
 
     /**
@@ -196,7 +161,7 @@ public class RepetitionScheduleManager {
      * @return The calculated review date.
      */
     @NonNull
-    public LocalDate calculateReviewDate(@NonNull ModuleProgress progress, int reviewIndex) {
+    private LocalDate calculateReviewDate(@NonNull ModuleProgress progress, int reviewIndex) {
         int wordCount = progress.getModule() != null ? progress.getModule().getWordCount() : 0;
         double dailyWordCount = Math.max(MIN_DAILY_WORDS, wordCount > 0 ? (double) wordCount : BASE_DAILY_WORDS);
 
@@ -304,34 +269,67 @@ public class RepetitionScheduleManager {
         return fallbackDate;
     }
 
+    // ----- RESCHEDULE METHODS -----
+
     /**
-     * Updates the next study date for a module progress based on pending repetitions.
+     * Reschedules future repetitions based on a new start date.
      *
-     * @param progress The module progress to update.
+     * @param progress     The module progress containing the repetitions.
+     * @param currentOrder The current repetition order.
+     * @param newStartDate The new start date for rescheduling.
      */
-    public void updateNextStudyDate(@NonNull ModuleProgress progress) {
-        List<Repetition> pendingRepetitions = repetitionRepository
-                .findByModuleProgressIdAndStatusOrderByReviewDate(progress.getId(), RepetitionStatus.NOT_STARTED);
+    public void rescheduleFutureRepetitions(
+            @NonNull ModuleProgress progress,
+            @NonNull RepetitionOrder currentOrder,
+            @NonNull LocalDate newStartDate) {
 
-        if (pendingRepetitions.isEmpty()) {
-            if (progress.getNextStudyDate() != null) {
-                progress.setNextStudyDate(null);
-                progressRepository.save(progress);
-                log.debug("Cleared next study date as no pending repetitions found for progress ID: {}", progress.getId());
+        int currentIndex = getOrderIndex(currentOrder);
+        if (currentIndex == -1) {
+            log.debug("Invalid order {} for rescheduling for progress ID: {}", currentOrder, progress.getId());
+            return;
+        }
+
+        if (validateRepetitionOrder(progress, currentOrder, currentIndex)) return;
+
+        List<Repetition> futureRepetitions = getFutureRepetitions(progress, currentIndex);
+        if (futureRepetitions.isEmpty()) {
+            log.debug("No future repetitions found to reschedule for progress ID: {}", progress.getId());
+            return;
+        }
+
+        log.info("Rescheduling {} future repetitions based on new date: {} for progress ID: {}",
+                futureRepetitions.size(), newStartDate, progress.getId());
+
+        boolean changed = false;
+        for (Repetition repetition : futureRepetitions) {
+            int repIndex = getOrderIndex(repetition.getRepetitionOrder());
+            if (repIndex < 0 || repIndex >= REVIEW_MULTIPLIERS.length || currentIndex >= REVIEW_MULTIPLIERS.length) {
+                log.error("Invalid index detected during rescheduling. RepIndex: {}, CurrentIndex: {}. Skipping repetition {}.",
+                        repIndex, currentIndex, repetition.getId());
+                continue;
             }
+
+            int dayOffset = REVIEW_MULTIPLIERS[repIndex] - REVIEW_MULTIPLIERS[currentIndex];
+            LocalDate newReviewDate = newStartDate.plusDays(dayOffset);
+            if (newReviewDate.equals(repetition.getReviewDate())) {
+                continue;
+            }
+
+            repetition.setReviewDate(newReviewDate);
+            log.debug("Rescheduled repetition {} to {} for progress ID: {}", repetition.getRepetitionOrder(), newReviewDate, progress.getId());
+            changed = true;
+        }
+
+        if (!changed) {
+            log.debug("No dates changed during reschedule for progress ID: {}", progress.getId());
             return;
         }
 
-        LocalDate newNextStudyDate = pendingRepetitions.get(0).getReviewDate();
-        if (newNextStudyDate.equals(progress.getNextStudyDate())) {
-            log.trace("Next study date {} already up-to-date for progress ID: {}", newNextStudyDate, progress.getId());
-            return;
-        }
-
-        progress.setNextStudyDate(newNextStudyDate);
-        progressRepository.save(progress);
-        log.debug("Updated next study date to {} for progress ID: {}", newNextStudyDate, progress.getId());
+        repetitionRepository.saveAll(futureRepetitions);
+        updateNextStudyDate(progress);
     }
+
+    // ----- COMPLETION HANDLING METHODS -----
 
     /**
      * Updates the review dates of future repetitions after a repetition is completed.
@@ -384,36 +382,6 @@ public class RepetitionScheduleManager {
 
         repetitionRepository.saveAll(futureRepetitions);
         log.info("Saved updated dates for future repetitions for progress ID: {}", progress.getId());
-    }
-
-    /**
-     * Retrieves future repetitions that are not yet started.
-     *
-     * @param progress     The module progress to query.
-     * @param currentIndex The index of the current repetition order.
-     * @return A list of future repetitions.
-     */
-    @NonNull
-    private List<Repetition> getFutureRepetitions(@NonNull ModuleProgress progress, int currentIndex) {
-        List<Repetition> pendingRepetitions = repetitionRepository
-                .findByModuleProgressIdAndStatusOrderByRepetitionOrder(progress.getId(), RepetitionStatus.NOT_STARTED);
-
-        return pendingRepetitions.stream()
-                .filter(rep -> getOrderIndex(rep.getRepetitionOrder()) > currentIndex)
-                .toList();
-    }
-
-    /**
-     * Gets the index of a repetition order in the enum.
-     *
-     * @param order The repetition order.
-     * @return The index of the order, or -1 if the order is null.
-     */
-    private int getOrderIndex(RepetitionOrder order) {
-        if (order == null) {
-            return -1;
-        }
-        return Arrays.asList(RepetitionOrder.values()).indexOf(order);
     }
 
     /**
@@ -521,5 +489,46 @@ public class RepetitionScheduleManager {
                 newFirstLearningDate, progress.getId());
 
         return createRepetitionsForProgress(progress);
+    }
+
+    // ----- UTILITY METHODS -----
+
+    /**
+     * Retrieves future repetitions that are not yet started.
+     *
+     * @param progress     The module progress to query.
+     * @param currentIndex The index of the current repetition order.
+     * @return A list of future repetitions.
+     */
+    @NonNull
+    private List<Repetition> getFutureRepetitions(@NonNull ModuleProgress progress, int currentIndex) {
+        List<Repetition> pendingRepetitions = repetitionRepository
+                .findByModuleProgressIdAndStatusOrderByRepetitionOrder(progress.getId(), RepetitionStatus.NOT_STARTED);
+
+        return pendingRepetitions.stream()
+                .filter(rep -> getOrderIndex(rep.getRepetitionOrder()) > currentIndex)
+                .toList();
+    }
+
+    /**
+     * Gets the index of a repetition order in the enum.
+     *
+     * @param order The repetition order.
+     * @return The index of the order, or -1 if the order is null.
+     */
+    private int getOrderIndex(RepetitionOrder order) {
+        if (order == null) {
+            return -1;
+        }
+        return Arrays.asList(RepetitionOrder.values()).indexOf(order);
+    }
+
+    private boolean validateRepetitionOrder(ModuleProgress progress, RepetitionOrder currentOrder, int currentIndex) {
+        RepetitionOrder[] allOrders = RepetitionOrder.values();
+        if (currentIndex >= allOrders.length - 1) {
+            log.debug("No future orders after {} for progress ID: {}", currentOrder, progress.getId());
+            return true;
+        }
+        return false;
     }
 }

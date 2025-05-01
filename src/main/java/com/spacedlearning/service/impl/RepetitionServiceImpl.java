@@ -1,8 +1,6 @@
 package com.spacedlearning.service.impl;
 
-import com.spacedlearning.dto.repetition.RepetitionCreateRequest;
-import com.spacedlearning.dto.repetition.RepetitionResponse;
-import com.spacedlearning.dto.repetition.RepetitionUpdateRequest;
+import com.spacedlearning.dto.repetition.*;
 import com.spacedlearning.entity.ModuleProgress;
 import com.spacedlearning.entity.Repetition;
 import com.spacedlearning.entity.enums.RepetitionOrder;
@@ -15,6 +13,7 @@ import com.spacedlearning.service.impl.repetition.RepetitionScheduleManager;
 import com.spacedlearning.service.impl.repetition.RepetitionValidator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.MessageSource;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -36,6 +35,7 @@ public class RepetitionServiceImpl implements RepetitionService {
     private final RepetitionMapper repetitionMapper;
     private final RepetitionScheduleManager scheduleManager;
     private final RepetitionValidator validator;
+    private final MessageSource messageSource;
 
     @Override
     @Transactional
@@ -132,7 +132,9 @@ public class RepetitionServiceImpl implements RepetitionService {
         final Repetition repetition = repetitionRepository.findByModuleProgressIdAndRepetitionOrder(moduleProgressId,
                         repetitionOrder)
                 .orElseThrow(() -> SpacedLearningException.resourceNotFound(
-                        "Repetition for ModuleProgress " + moduleProgressId + " and Order " + repetitionOrder, null));
+                        messageSource,
+                        "repetition.withProgressAndOrder",
+                        new Object[]{moduleProgressId, repetitionOrder}));
         return repetitionMapper.toDto(repetition);
     }
 
@@ -157,6 +159,7 @@ public class RepetitionServiceImpl implements RepetitionService {
         Objects.requireNonNull(id, REPETITION_ID_MUST_NOT_BE_NULL);
         Objects.requireNonNull(request, "Repetition update request must not be null");
         log.debug("Updating repetition with ID: {}, request: {}", id, request);
+        log.warn("This method is deprecated and will be removed in a future version. Use updateCompletion or reschedule instead.");
 
         final Repetition repetition = validator.findRepetition(id);
         final ModuleProgress progress = repetition.getModuleProgress();
@@ -178,6 +181,62 @@ public class RepetitionServiceImpl implements RepetitionService {
         scheduleManager.updateNextStudyDate(progress);
 
         log.info("Repetition updated successfully with ID: {}", updatedRepetition.getId());
+        return repetitionMapper.toDto(updatedRepetition);
+    }
+
+    @Override
+    @Transactional
+    public RepetitionResponse updateCompletion(UUID id, RepetitionCompletionRequest request) {
+        Objects.requireNonNull(id, REPETITION_ID_MUST_NOT_BE_NULL);
+        Objects.requireNonNull(request, "Repetition completion request must not be null");
+        Objects.requireNonNull(request.getStatus(), "Status must not be null");
+        log.debug("Updating completion for repetition with ID: {}, request: {}", id, request);
+
+        final Repetition repetition = validator.findRepetition(id);
+        final ModuleProgress progress = repetition.getModuleProgress();
+        final RepetitionStatus previousStatus = repetition.getStatus();
+
+        // Cập nhật status
+        repetition.setStatus(request.getStatus());
+        final RepetitionStatus newStatus = repetition.getStatus();
+
+        // Xử lý logic khi chuyển trạng thái từ NOT_STARTED/SKIPPED sang COMPLETED
+        if (previousStatus != RepetitionStatus.COMPLETED && newStatus == RepetitionStatus.COMPLETED) {
+            log.debug("Status changed to COMPLETED for Repetition ID: {}", id);
+            scheduleManager.updateFutureRepetitions(progress, repetition.getRepetitionOrder());
+            scheduleManager.checkAndUpdateCycleStudied(progress);
+        }
+
+        final Repetition updatedRepetition = repetitionRepository.save(repetition);
+        scheduleManager.updateNextStudyDate(progress);
+
+        log.info("Repetition completion updated successfully with ID: {}", updatedRepetition.getId());
+        return repetitionMapper.toDto(updatedRepetition);
+    }
+
+    @Override
+    @Transactional
+    public RepetitionResponse reschedule(UUID id, RepetitionRescheduleRequest request) {
+        Objects.requireNonNull(id, REPETITION_ID_MUST_NOT_BE_NULL);
+        Objects.requireNonNull(request, "Repetition reschedule request must not be null");
+        Objects.requireNonNull(request.getReviewDate(), "Review date must not be null");
+        log.debug("Rescheduling repetition with ID: {}, request: {}", id, request);
+
+        final Repetition repetition = validator.findRepetition(id);
+        final ModuleProgress progress = repetition.getModuleProgress();
+
+        // Cập nhật ngày xem lại
+        repetition.setReviewDate(request.getReviewDate());
+
+        // Lập lịch lại các repetition tiếp theo nếu cần
+        if (request.isRescheduleFollowing()) {
+            scheduleManager.rescheduleFutureRepetitions(progress, repetition.getRepetitionOrder(), request.getReviewDate());
+        }
+
+        final Repetition updatedRepetition = repetitionRepository.save(repetition);
+        scheduleManager.updateNextStudyDate(progress);
+
+        log.info("Repetition rescheduled successfully with ID: {}", updatedRepetition.getId());
         return repetitionMapper.toDto(updatedRepetition);
     }
 }

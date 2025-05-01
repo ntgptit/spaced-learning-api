@@ -1,42 +1,30 @@
 // File: src/main/java/com/spacedlearning/controller/RepetitionController.java
 package com.spacedlearning.controller;
 
-import java.time.LocalDate;
-import java.util.List;
-import java.util.UUID;
-
+import com.spacedlearning.dto.common.DataResponse;
+import com.spacedlearning.dto.common.PageResponse;
+import com.spacedlearning.dto.common.SuccessResponse;
+import com.spacedlearning.dto.repetition.*;
+import com.spacedlearning.entity.enums.RepetitionOrder;
+import com.spacedlearning.entity.enums.RepetitionStatus;
+import com.spacedlearning.service.RepetitionService;
+import com.spacedlearning.util.PageUtils;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.DeleteMapping;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
-import com.spacedlearning.dto.common.DataResponse;
-import com.spacedlearning.dto.common.PageResponse;
-import com.spacedlearning.dto.common.SuccessResponse;
-import com.spacedlearning.dto.repetition.RepetitionCreateRequest;
-import com.spacedlearning.dto.repetition.RepetitionResponse;
-import com.spacedlearning.dto.repetition.RepetitionUpdateRequest;
-import com.spacedlearning.entity.enums.RepetitionOrder;
-import com.spacedlearning.entity.enums.RepetitionStatus;
-import com.spacedlearning.service.RepetitionService;
-import com.spacedlearning.util.PageUtils;
-
-import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.tags.Tag;
-import jakarta.validation.Valid;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import java.time.LocalDate;
+import java.util.List;
+import java.util.UUID;
 
 /**
  * REST controller for Repetition operations
@@ -87,8 +75,8 @@ public class RepetitionController {
     @GetMapping("/user/{userId}/due")
     @Operation(summary = "Get due repetitions", description = "Retrieves a paginated list of repetitions due for review")
     public ResponseEntity<PageResponse<RepetitionResponse>> getDueRepetitions(@PathVariable UUID userId,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate reviewDate,
-            @RequestParam(required = false) RepetitionStatus status, @PageableDefault(size = 20) Pageable pageable) {
+                                                                              @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate reviewDate,
+                                                                              @RequestParam(required = false) RepetitionStatus status, @PageableDefault(size = 20) Pageable pageable) {
         log.debug("REST request to get due repetitions for user ID: {} on date: {}, status: {}, pageable: {}", userId,
                 reviewDate, status, pageable);
         final Page<RepetitionResponse> page = repetitionService.findDueRepetitions(userId, reviewDate, status,
@@ -123,11 +111,32 @@ public class RepetitionController {
     }
 
     @PutMapping("/{id}")
-    @Operation(summary = "Update repetition", description = "Updates an existing repetition")
+    @Operation(summary = "Update repetition", description = "Updates an existing repetition (deprecated)")
     public ResponseEntity<DataResponse<RepetitionResponse>> updateRepetition(@PathVariable UUID id,
-            @Valid @RequestBody RepetitionUpdateRequest request) {
+                                                                             @Valid @RequestBody RepetitionUpdateRequest request) {
         log.debug("REST request to update repetition with ID: {}, request: {}", id, request);
+        log.warn("This endpoint is deprecated and will be removed in future versions. Use /api/v1/repetitions/{id}/complete or /api/v1/repetitions/{id}/reschedule instead.");
         final RepetitionResponse updatedRepetition = repetitionService.update(id, request);
         return ResponseEntity.ok(DataResponse.of(updatedRepetition));
+    }
+
+    @PutMapping("/{id}/complete")
+    @Operation(summary = "Update repetition completion", description = "Updates the completion status of an existing repetition")
+    public ResponseEntity<DataResponse<RepetitionResponse>> updateRepetitionCompletion(
+            @PathVariable UUID id,
+            @Valid @RequestBody RepetitionCompletionRequest request) {
+        log.debug("REST request to update repetition completion with ID: {}, request: {}", id, request);
+        final RepetitionResponse updatedRepetition = repetitionService.updateCompletion(id, request);
+        return ResponseEntity.ok(DataResponse.of(updatedRepetition));
+    }
+
+    @PutMapping("/{id}/reschedule")
+    @Operation(summary = "Reschedule repetition", description = "Reschedules an existing repetition to a new date")
+    public ResponseEntity<DataResponse<RepetitionResponse>> rescheduleRepetition(
+            @PathVariable UUID id,
+            @Valid @RequestBody RepetitionRescheduleRequest request) {
+        log.debug("REST request to reschedule repetition with ID: {}, request: {}", id, request);
+        final RepetitionResponse rescheduledRepetition = repetitionService.reschedule(id, request);
+        return ResponseEntity.ok(DataResponse.of(rescheduledRepetition));
     }
 }
