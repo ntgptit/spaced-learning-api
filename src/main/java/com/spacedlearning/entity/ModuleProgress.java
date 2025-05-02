@@ -8,9 +8,7 @@ import java.util.List;
 import com.spacedlearning.entity.enums.CycleStudied;
 
 import jakarta.persistence.CascadeType;
-import jakarta.persistence.CollectionTable;
 import jakarta.persistence.Column;
-import jakarta.persistence.Embeddable;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
@@ -19,7 +17,6 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
-import jakarta.persistence.UniqueConstraint;
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotNull;
@@ -64,9 +61,8 @@ public class ModuleProgress extends BaseEntity {
     @OneToMany(mappedBy = "moduleProgress", fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Repetition> repetitions = new ArrayList<>();
 
-    @CollectionTable(name = "module_progress_cycle_start", joinColumns = @JoinColumn(name = "module_progress_id"), uniqueConstraints = @UniqueConstraint(columnNames = {
-            "module_progress_id", "cycle", "start_date" }))
-    private List<CycleStartRecord> cycleStartDates = new ArrayList<>();
+    @OneToMany(mappedBy = "moduleProgress", fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<LearningCycle> learningCycles = new ArrayList<>();
 
     public Repetition addRepetition(Repetition repetition) {
         repetitions.add(repetition);
@@ -83,9 +79,9 @@ public class ModuleProgress extends BaseEntity {
     }
 
     public LocalDate findLatestCycleStart(CycleStudied cycle) {
-        return cycleStartDates.stream()
+        return learningCycles.stream()
                 .filter(r -> r.getCycle() == cycle)
-                .map(CycleStartRecord::getStartDate)
+                .map(LearningCycle::getStartDate)
                 .max(LocalDate::compareTo)
                 .orElse(null);
     }
@@ -105,21 +101,10 @@ public class ModuleProgress extends BaseEntity {
     }
 
     public void addCycleStart(CycleStudied cycle, LocalDate date) {
-        cycleStartDates.add(new CycleStartRecord(cycle, date));
-    }
-
-    @Embeddable
-    @Getter
-    @Setter
-    @NoArgsConstructor
-    @AllArgsConstructor
-    public static class CycleStartRecord {
-
-        @Enumerated(EnumType.STRING)
-        @Column(name = "cycle")
-        private CycleStudied cycle;
-
-        @Column(name = "start_date")
-        private LocalDate startDate;
+        final LearningCycle learningCycle = new LearningCycle();
+        learningCycle.setModuleProgress(this);
+        learningCycle.setCycle(cycle);
+        learningCycle.setStartDate(date);
+        learningCycles.add(learningCycle);
     }
 }

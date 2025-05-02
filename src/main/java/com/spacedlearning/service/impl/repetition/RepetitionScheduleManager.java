@@ -38,9 +38,14 @@ public class RepetitionScheduleManager {
     private static final int MAX_WORD_FACTOR = 3;
     private static final int MAX_INTERVAL_DAYS = 31;
     private static final int MIN_DAILY_WORDS = 20;
-    private static final long OPTIMAL_DATE_MAX_COUNT = 2L;
+    private static final long OPTIMAL_DATE_MAX_COUNT = 3L;
     private static final int OPTIMAL_DATE_SEARCH_WINDOW_DAYS = 7;
     private static final int MAX_DATE_CONSTRAINT_DAYS = 60;
+
+    // Study cycle adjustment factors
+    private static final double COMPLETION_ADJUSTMENT_FACTOR = 0.5;
+    private static final double STUDY_CYCLE_ADJUSTMENT_FACTOR = 0.2;
+    private static final double WORD_FACTOR_ADJUSTMENT = 0.3;
 
     private final RepetitionRepository repetitionRepository;
     private final ModuleProgressRepository progressRepository;
@@ -55,6 +60,7 @@ public class RepetitionScheduleManager {
         final int baseMultiplier = reviewIndex < REVIEW_MULTIPLIERS.length ? REVIEW_MULTIPLIERS[reviewIndex]
                 : REVIEW_MULTIPLIERS[REVIEW_MULTIPLIERS.length - 1];
         double baseInterval = wordFactor * Math.min(MAX_INTERVAL_DAYS, (double) adjustedCycleCount * baseMultiplier);
+
         if (adjustedCycleCount >= 3 && reviewIndex >= 2) {
             baseInterval = Math.sqrt((double) adjustedCycleCount * baseMultiplier) * wordFactor * 5.0;
         }
@@ -78,6 +84,28 @@ public class RepetitionScheduleManager {
     }
 
     /**
+     * Initializes the first cycle for a module progress if not already recorded.
+     *
+     * @param progress The module progress to initialize.
+     */
+    public void initializeFirstCycle(@NonNull ModuleProgress progress) {
+        if (progress.findLatestCycleStart(CycleStudied.FIRST_TIME) != null) {
+            return;
+        }
+
+        LocalDate startDate = progress.getFirstLearningDate();
+        if (startDate == null) {
+            startDate = LocalDate.now();
+            progress.setFirstLearningDate(startDate);
+        }
+
+        progress.addCycleStart(CycleStudied.FIRST_TIME, startDate);
+        progressRepository.save(progress);
+        log.info("Initialized first cycle record for progress ID: {} starting on {}",
+                progress.getId(), startDate);
+    }
+
+    /**
      * Creates the initial set of repetitions for a module progress.
      *
      * @param progress The module progress to create repetitions for.
@@ -85,6 +113,9 @@ public class RepetitionScheduleManager {
      */
     @NonNull
     public List<Repetition> createRepetitionsForProgress(@NonNull ModuleProgress progress) {
+        // Ensure first cycle is initialized
+        initializeFirstCycle(progress);
+
         final List<Repetition> repetitions = new ArrayList<>();
         final RepetitionOrder[] orders = RepetitionOrder.values();
 
@@ -143,14 +174,14 @@ public class RepetitionScheduleManager {
         }
 
         final LocalDate newNextStudyDate = pendingRepetitions.get(0).getReviewDate();
-        if (newNextStudyDate.equals(progress.getNextStudyDate())) {
-            log.trace("Next study date {} already up-to-date for progress ID: {}", newNextStudyDate, progress.getId());
+        if (progress.getNextStudyDate() == null || !newNextStudyDate.equals(progress.getNextStudyDate())) {
+            progress.setNextStudyDate(newNextStudyDate);
+            progressRepository.save(progress);
+            log.debug("Updated next study date to {} for progress ID: {}", newNextStudyDate, progress.getId());
             return;
         }
 
-        progress.setNextStudyDate(newNextStudyDate);
-        progressRepository.save(progress);
-        log.debug("Updated next study date to {} for progress ID: {}", newNextStudyDate, progress.getId());
+        log.trace("Next study date {} already up-to-date for progress ID: {}", newNextStudyDate, progress.getId());
     }
 
     /**
@@ -171,7 +202,8 @@ public class RepetitionScheduleManager {
         final BigDecimal percentComplete = progress.getPercentComplete();
         final double baseInterval = getBaseInterval(reviewIndex, studyCycleCount, dailyWordCount);
 
-        final LocalDate referenceDate = progress.getEffectiveStartDate(); // NEW LINE
+        // Retrieve effective start date considering LearningCycle
+        final LocalDate referenceDate = getEffectiveStartDate(progress);
         double daysToAdd = baseInterval;
 
         if (percentComplete != null && percentComplete.doubleValue() > 0.0) {
@@ -186,6 +218,35 @@ public class RepetitionScheduleManager {
         }
 
         return findOptimalDate(calculatedDate);
+    }
+
+    /**
+     * Gets the effective start date for schedule calculations.
+     *
+     * @param progress The module progress.
+     * @return The effective start date.
+     */
+    @NonNull
+    private LocalDate getEffectiveStartDate(@NonNull ModuleProgress progress) {
+        // First check LearningCycle for current cycle
+        final LocalDate cycleStart = progress.findLatestCycleStart(progress.getCyclesStudied());
+        if (cycleStart != null) {
+            log.debug("Using cycle start date {} from LearningCycle for cycle {} and progress ID: {}",
+                    cycleStart, progress.getCyclesStudied(), progress.getId());
+            return cycleStart;
+        }
+
+        // Then use firstLearningDate
+        if (progress.getFirstLearningDate() != null) {
+            log.debug("Using firstLearningDate {} for progress ID: {}",
+                    progress.getFirstLearningDate(), progress.getId());
+            return progress.getFirstLearningDate();
+        }
+
+        // Fallback to current date
+        log.warn("Missing start date for cycle {} and progress ID: {}. Falling back to current date.",
+                progress.getCyclesStudied(), progress.getId());
+        return LocalDate.now();
     }
 
     private int getCycleStudiedCount(final CycleStudied cyclesStudied) {
@@ -364,9 +425,9 @@ public class RepetitionScheduleManager {
         final double completedPercent = percent != null ? percent.doubleValue() : 0.0;
 
         final double factor = 1.0
-                + (studyCycleCount - 1) * 0.2
-                + completedPercent / 100.0 * 0.5
-                + (wordFactor - 1.0) * 0.3;
+                + (studyCycleCount - 1) * STUDY_CYCLE_ADJUSTMENT_FACTOR
+                + completedPercent / 100.0 * COMPLETION_ADJUSTMENT_FACTOR
+                + (wordFactor - 1.0) * WORD_FACTOR_ADJUSTMENT;
 
         final int baseMultiplier = repetitionIndex < REVIEW_MULTIPLIERS.length
                 ? REVIEW_MULTIPLIERS[repetitionIndex]
@@ -506,9 +567,14 @@ public class RepetitionScheduleManager {
             return;
         }
 
+        // Add new cycle record to LearningCycle
+        final LocalDate now = LocalDate.now();
+        progress.addCycleStart(nextCycle, now);
+
         progress.setCyclesStudied(nextCycle);
         progressRepository.save(progress);
-        log.info("Updated cycle studied from {} to {} for progress ID: {}", currentCycle, nextCycle, progress.getId());
+        log.info("Updated cycle studied from {} to {} for progress ID: {} starting on {}",
+                currentCycle, nextCycle, progress.getId(), now);
         createNewRepetitionCycle(progress);
     }
 
@@ -536,10 +602,6 @@ public class RepetitionScheduleManager {
             log.debug("Marked previously non-completed repetitions as COMPLETED for progress ID: {}", progress.getId());
         }
 
-        if (!requiresSave) {
-            log.debug("All existing repetitions were already COMPLETED for progress ID: {}", progress.getId());
-        }
-
         final List<Repetition> newRepetitions = createRepetitionsWithCurrentDate(progress);
         if (newRepetitions.isEmpty()) {
             log.warn("Failed to create new repetitions for the next cycle for progress ID: {}", progress.getId());
@@ -562,23 +624,30 @@ public class RepetitionScheduleManager {
     private List<Repetition> createRepetitionsWithCurrentDate(@NonNull ModuleProgress progress) {
         final Optional<LocalDate> lastCompletedDateOpt = repetitionRepository.findLastCompletedRepetitionDate(progress
                 .getId());
+
+        LocalDate newStartDate;
         if (lastCompletedDateOpt.isEmpty()) {
             log.warn(
                     "Could not find last completed repetition date for progress ID: {}. Using existing/fallback firstLearningDate.",
                     progress.getId());
+
             if (progress.getFirstLearningDate() == null) {
-                progress.setFirstLearningDate(LocalDate.now());
-                progressRepository.save(progress);
+                newStartDate = LocalDate.now();
+                progress.setFirstLearningDate(newStartDate);
+            } else {
+                newStartDate = progress.getFirstLearningDate();
             }
-            return createRepetitionsForProgress(progress);
+        } else {
+            // Set new start date to day after last completion
+            newStartDate = lastCompletedDateOpt.get().plusDays(1);
         }
 
-        final LocalDate lastCompletedDate = lastCompletedDateOpt.get();
-        final LocalDate newFirstLearningDate = lastCompletedDate.plusDays(1);
-        progress.setFirstLearningDate(newFirstLearningDate);
+        // Add new cycle start record
+        progress.addCycleStart(progress.getCyclesStudied(), newStartDate);
+
         progressRepository.save(progress);
-        log.debug("Set new reference date (firstLearningDate) to {} for new cycle for progress ID: {}",
-                newFirstLearningDate, progress.getId());
+        log.debug("Set new reference date for cycle {} to {} for progress ID: {}",
+                progress.getCyclesStudied(), newStartDate, progress.getId());
 
         return createRepetitionsForProgress(progress);
     }
@@ -592,6 +661,13 @@ public class RepetitionScheduleManager {
      * @param currentIndex The index of the current repetition order.
      * @return A list of future repetitions.
      */
+    /**
+     * Retrieves future repetitions that are not yet started, sorted by repetition order.
+     *
+     * @param progress     The module progress to query.
+     * @param currentIndex The index of the current repetition order.
+     * @return A list of future repetitions sorted by repetition order.
+     */
     @NonNull
     private List<Repetition> getFutureRepetitions(@NonNull ModuleProgress progress, int currentIndex) {
         final List<Repetition> pendingRepetitions = repetitionRepository
@@ -599,6 +675,11 @@ public class RepetitionScheduleManager {
 
         return pendingRepetitions.stream()
                 .filter(rep -> getOrderIndex(rep.getRepetitionOrder()) > currentIndex)
+                .sorted((r1, r2) -> {
+                    final int order1 = getOrderIndex(r1.getRepetitionOrder());
+                    final int order2 = getOrderIndex(r2.getRepetitionOrder());
+                    return Integer.compare(order1, order2);
+                })
                 .toList();
     }
 
