@@ -1,17 +1,9 @@
 // File: src/main/java/com/spacedlearning/service/impl/UserServiceImpl.java
 package com.spacedlearning.service.impl;
 
-import com.spacedlearning.dto.user.UserDetailedResponse;
-import com.spacedlearning.dto.user.UserResponse;
-import com.spacedlearning.dto.user.UserUpdateRequest;
-import com.spacedlearning.entity.User;
-import com.spacedlearning.exception.SpacedLearningException;
-import com.spacedlearning.mapper.UserMapper;
-import com.spacedlearning.repository.UserRepository;
-import com.spacedlearning.security.CustomUserDetailsService;
-import com.spacedlearning.service.UserService;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import java.util.Optional;
+import java.util.UUID;
+
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.core.Authentication;
@@ -19,8 +11,17 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.Optional;
-import java.util.UUID;
+import com.spacedlearning.dto.user.UserDetailedResponse;
+import com.spacedlearning.dto.user.UserResponse;
+import com.spacedlearning.dto.user.UserUpdateRequest;
+import com.spacedlearning.entity.User;
+import com.spacedlearning.exception.SpacedLearningException;
+import com.spacedlearning.mapper.UserMapper;
+import com.spacedlearning.repository.UserRepository;
+import com.spacedlearning.service.UserService;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * Implementation of UserService
@@ -32,7 +33,6 @@ public class UserServiceImpl implements UserService {
 
     private final UserRepository userRepository;
     private final UserMapper userMapper;
-    private final CustomUserDetailsService userDetailsService;
 
     @Override
     @Transactional
