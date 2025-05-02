@@ -47,7 +47,7 @@ public class RepetitionScheduleManager {
 
     // ----- SCHEDULE MANAGEMENT METHODS -----
 
-    private static double getBaseInterval(int reviewIndex, int studyCycleCount, double dailyWordCount) {
+    private double getBaseInterval(int reviewIndex, int studyCycleCount, double dailyWordCount) {
         final int adjustedCycleCount = Math.max(1, studyCycleCount);
         final double wordFactor = Math.min(MAX_WORD_FACTOR, Math.max(dailyWordCount, BASE_DAILY_WORDS)
                 / BASE_DAILY_WORDS);
@@ -171,21 +171,18 @@ public class RepetitionScheduleManager {
         final BigDecimal percentComplete = progress.getPercentComplete();
         final double baseInterval = getBaseInterval(reviewIndex, studyCycleCount, dailyWordCount);
 
-        final LocalDate referenceDate = progress.getFirstLearningDate() != null ? progress.getFirstLearningDate()
-                : LocalDate.now();
+        final LocalDate referenceDate = progress.getEffectiveStartDate(); // NEW LINE
         double daysToAdd = baseInterval;
+
         if (percentComplete != null && percentComplete.doubleValue() > 0.0) {
             daysToAdd = baseInterval * (percentComplete.doubleValue() / 100.0);
         }
 
         LocalDate calculatedDate = referenceDate.plusDays(Math.round(daysToAdd));
-        if (progress.getFirstLearningDate() == null) {
-            return findOptimalDate(calculatedDate);
-        }
-        if (calculatedDate.isAfter(progress.getFirstLearningDate().plusDays(MAX_DATE_CONSTRAINT_DAYS))) {
-            log.debug("Constraining date {} to {} days after first learning date for progress ID: {}",
+        if (calculatedDate.isAfter(referenceDate.plusDays(MAX_DATE_CONSTRAINT_DAYS))) {
+            log.debug("Constraining date {} to {} days after reference date for progress ID: {}",
                     calculatedDate, MAX_DATE_CONSTRAINT_DAYS, progress.getId());
-            calculatedDate = progress.getFirstLearningDate().plusDays(MAX_DATE_CONSTRAINT_DAYS);
+            calculatedDate = referenceDate.plusDays(MAX_DATE_CONSTRAINT_DAYS);
         }
 
         return findOptimalDate(calculatedDate);

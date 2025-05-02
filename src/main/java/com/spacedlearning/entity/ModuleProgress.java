@@ -8,7 +8,9 @@ import java.util.List;
 import com.spacedlearning.entity.enums.CycleStudied;
 
 import jakarta.persistence.CascadeType;
+import jakarta.persistence.CollectionTable;
 import jakarta.persistence.Column;
+import jakarta.persistence.Embeddable;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
@@ -17,6 +19,7 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotNull;
@@ -24,6 +27,7 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * Entity representing a user's progress for a specific module.
@@ -34,6 +38,7 @@ import lombok.Setter;
 @NoArgsConstructor
 @AllArgsConstructor
 @Table(name = "module_progress", schema = "spaced_learning")
+@Slf4j
 public class ModuleProgress extends BaseEntity {
 
     @NotNull
@@ -59,30 +64,62 @@ public class ModuleProgress extends BaseEntity {
     @OneToMany(mappedBy = "moduleProgress", fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Repetition> repetitions = new ArrayList<>();
 
-    /**
-     * Adds a repetition record to this progress and sets the bidirectional
-     * relationship.
-     *
-     * @param repetition The repetition to add
-     * @return The added repetition
-     */
+    @CollectionTable(name = "module_progress_cycle_start", joinColumns = @JoinColumn(name = "module_progress_id"), uniqueConstraints = @UniqueConstraint(columnNames = {
+            "module_progress_id", "cycle", "start_date" }))
+    private List<CycleStartRecord> cycleStartDates = new ArrayList<>();
+
     public Repetition addRepetition(Repetition repetition) {
         repetitions.add(repetition);
         repetition.setModuleProgress(this);
         return repetition;
     }
 
-    /**
-     * Removes a repetition record from this progress.
-     *
-     * @param repetition The repetition to remove
-     * @return True if the repetition was removed, false otherwise
-     */
     public boolean removeRepetition(Repetition repetition) {
         final boolean removed = repetitions.remove(repetition);
         if (removed) {
             repetition.setModuleProgress(null);
         }
         return removed;
+    }
+
+    public LocalDate findLatestCycleStart(CycleStudied cycle) {
+        return cycleStartDates.stream()
+                .filter(r -> r.getCycle() == cycle)
+                .map(CycleStartRecord::getStartDate)
+                .max(LocalDate::compareTo)
+                .orElse(null);
+    }
+
+    public LocalDate getEffectiveStartDate() {
+        final LocalDate cycleStart = findLatestCycleStart(cyclesStudied);
+        if (cycleStart != null) {
+            return cycleStart;
+        }
+
+        if (firstLearningDate != null) {
+            return firstLearningDate;
+        }
+
+        log.warn("Missing effective start date for moduleProgress ID: {}. Fallback to now.", getId());
+        return LocalDate.now();
+    }
+
+    public void addCycleStart(CycleStudied cycle, LocalDate date) {
+        cycleStartDates.add(new CycleStartRecord(cycle, date));
+    }
+
+    @Embeddable
+    @Getter
+    @Setter
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class CycleStartRecord {
+
+        @Enumerated(EnumType.STRING)
+        @Column(name = "cycle")
+        private CycleStudied cycle;
+
+        @Column(name = "start_date")
+        private LocalDate startDate;
     }
 }
