@@ -180,7 +180,7 @@ public class RepetitionServiceImpl implements RepetitionService {
                     request.getReviewDate());
         } else if (previousStatus != RepetitionStatus.COMPLETED && newStatus == RepetitionStatus.COMPLETED) {
             log.debug("Status changed to COMPLETED for Repetition ID: {}", id);
-            scheduleManager.updateFutureRepetitions(progress, repetition);
+            scheduleManager.markCompletedRepetitions(progress, repetition);
             scheduleManager.checkAndUpdateCycleStudied(progress);
         }
 
@@ -210,7 +210,7 @@ public class RepetitionServiceImpl implements RepetitionService {
         // Xử lý logic khi chuyển trạng thái từ NOT_STARTED/SKIPPED sang COMPLETED
         if (previousStatus != RepetitionStatus.COMPLETED && newStatus == RepetitionStatus.COMPLETED) {
             log.debug("Status changed to COMPLETED for Repetition ID: {}", id);
-            scheduleManager.updateFutureRepetitions(progress, repetition);
+            scheduleManager.markCompletedRepetitions(progress, repetition);
             scheduleManager.checkAndUpdateCycleStudied(progress);
         }
 
