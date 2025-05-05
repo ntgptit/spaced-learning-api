@@ -205,6 +205,7 @@ public class RepetitionServiceImpl implements RepetitionService {
 
         // Cập nhật status
         repetition.setStatus(request.getStatus());
+        progress.setPercentComplete(request.getScore());
         final RepetitionStatus newStatus = repetition.getStatus();
 
         // Xử lý logic khi chuyển trạng thái từ NOT_STARTED/SKIPPED sang COMPLETED
