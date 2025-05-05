@@ -33,11 +33,18 @@ public class RepetitionScheduleManager {
     private static final int MIN_DAILY_WORDS = 20;
     private static final long OPTIMAL_DATE_MAX_COUNT = 3L;
     private static final int OPTIMAL_DATE_SEARCH_WINDOW_DAYS = 7;
-    // Study cycle adjustment factors
     private static final double COMPLETION_ADJUSTMENT_FACTOR = 0.5;
     private static final double STUDY_CYCLE_ADJUSTMENT_FACTOR = 0.2;
     private static final double WORD_FACTOR_ADJUSTMENT = 0.3;
     private static final int MAX_DATE_CONSTRAINT_DAYS = 60;
+    private static final EnumMap<RepetitionOrder, Integer> ORDER_INDEX_MAP = new EnumMap<>(RepetitionOrder.class);
+
+    static {
+        final RepetitionOrder[] values = RepetitionOrder.values();
+        for (int i = 0; i < values.length; i++) {
+            ORDER_INDEX_MAP.put(values[i], i);
+        }
+    }
 
     private final RepetitionRepository repetitionRepository;
     private final ModuleProgressRepository progressRepository;
@@ -88,19 +95,23 @@ public class RepetitionScheduleManager {
      * @param progress The module progress to create repetitions for.
      * @return A list of created repetitions.
      */
-    @NonNull
     public List<Repetition> createRepetitionsForProgress(@NonNull ModuleProgress progress) {
         initializeFirstCycle(progress);
+        final LocalDate baseDate = getEffectiveStartDate(progress);
+        final Map<LocalDate, Long> dateCounts = loadReviewDateCounts(baseDate);
+        return buildRepetitions(progress, baseDate, dateCounts);
+    }
 
+    @NonNull
+    private List<Repetition> buildRepetitions(@NonNull ModuleProgress progress,
+                                              @NonNull LocalDate baseDate,
+                                              @NonNull Map<LocalDate, Long> dateCounts) {
         final List<Repetition> repetitions = new ArrayList<>();
         final RepetitionOrder[] orders = RepetitionOrder.values();
         if (orders.length < 5) {
             log.warn("Not enough RepetitionOrder values to create 5 repetitions. Progress ID: {}", progress.getId());
             return repetitions;
         }
-
-        final LocalDate baseDate = getEffectiveStartDate(progress);
-        final Map<LocalDate, Long> dateCounts = loadReviewDateCounts(baseDate, MAX_DATE_CONSTRAINT_DAYS);
 
         LocalDate previousDate = null;
         int previousIndex = -1;
@@ -109,7 +120,7 @@ public class RepetitionScheduleManager {
             LocalDate calculatedDate = calculateAdjustedReviewDate(progress, i, baseDate, dateCounts);
 
             if (previousDate != null) {
-                final int minGap = REVIEW_MULTIPLIERS[i] - REVIEW_MULTIPLIERS[previousIndex];
+                final int minGap = getMinRequiredGap(i, previousIndex);
                 final LocalDate minAllowedDate = previousDate.plusDays(minGap);
                 if (calculatedDate.isBefore(minAllowedDate)) {
                     calculatedDate = minAllowedDate;
@@ -160,7 +171,7 @@ public class RepetitionScheduleManager {
             LocalDate calculatedDate = calculateAdjustedReviewDate(progress, i, startDate, dateCounts);
 
             if (previousDate != null) {
-                final int minGap = REVIEW_MULTIPLIERS[i] - REVIEW_MULTIPLIERS[previousIndex];
+                final int minGap = getMinRequiredGap(previousIndex, i);
                 final LocalDate minAllowedDate = previousDate.plusDays(minGap);
                 if (calculatedDate.isBefore(minAllowedDate)) {
                     calculatedDate = minAllowedDate;
@@ -265,8 +276,13 @@ public class RepetitionScheduleManager {
      */
     @NonNull
     private LocalDate findOptimalDate(@NonNull LocalDate initialDate, @NonNull Map<LocalDate, Long> dateCounts) {
+        if (initialDate.isBefore(LocalDate.now())) {
+            log.debug("Initial date {} is in the past. Defaulting to today.", initialDate);
+            return LocalDate.now();
+        }
+
         final long initialCount = dateCounts.getOrDefault(initialDate, 0L);
-        if (initialCount <= OPTIMAL_DATE_MAX_COUNT && !initialDate.isBefore(LocalDate.now())) {
+        if (initialCount <= OPTIMAL_DATE_MAX_COUNT) {
             return initialDate;
         }
 
@@ -280,11 +296,9 @@ public class RepetitionScheduleManager {
             }
         }
 
+        // fallback: just one day ahead or today
         final LocalDate fallback = initialDate.plusDays(1);
-        if (fallback.isBefore(LocalDate.now())) {
-            return LocalDate.now();
-        }
-        return fallback;
+        return fallback.isBefore(LocalDate.now()) ? LocalDate.now() : fallback;
     }
 
     // ----- RESCHEDULE METHODS -----
@@ -317,7 +331,7 @@ public class RepetitionScheduleManager {
             return;
         }
 
-        final Map<LocalDate, Long> dateCounts = loadReviewDateCounts(newStartDate, MAX_DATE_CONSTRAINT_DAYS);
+        final Map<LocalDate, Long> dateCounts = loadReviewDateCounts(newStartDate);
 
         log.info("Rescheduling {} future repetitions starting from {} for progress ID: {}",
                 futureRepetitions.size(), newStartDate, progress.getId());
@@ -334,7 +348,7 @@ public class RepetitionScheduleManager {
             }
 
             final LocalDate calculatedDate = calculateAdjustedReviewDate(progress, repIndex, newStartDate, dateCounts);
-            final int minRequiredGapDays = REVIEW_MULTIPLIERS[repIndex] - REVIEW_MULTIPLIERS[previousIndex];
+            final int minRequiredGapDays = getMinRequiredGap(previousIndex, repIndex);
             final LocalDate minAllowedDate = previousDate.plusDays(minRequiredGapDays);
 
             final LocalDate adjustedDate = calculatedDate.isBefore(minAllowedDate) ? minAllowedDate : calculatedDate;
@@ -360,9 +374,15 @@ public class RepetitionScheduleManager {
             return;
         }
 
-        repetitionRepository.saveAll(futureRepetitions);
-        updateNextStudyDate(progress);
+        persistRepetitionsAndUpdateStudyDate(progress, futureRepetitions);
         log.info("Future repetitions rescheduled and saved for progress ID: {}", progress.getId());
+    }
+
+    private int getMinRequiredGap(int currentIndex, int previousIndex) {
+        if (currentIndex >= REVIEW_MULTIPLIERS.length || previousIndex >= REVIEW_MULTIPLIERS.length) {
+            return 0;
+        }
+        return REVIEW_MULTIPLIERS[currentIndex] - REVIEW_MULTIPLIERS[previousIndex];
     }
 
     /**
@@ -436,7 +456,7 @@ public class RepetitionScheduleManager {
                 : LocalDate.now();
 
         // Create dateCounts map for the calculateAdjustedReviewDate method
-        final Map<LocalDate, Long> dateCounts = loadReviewDateCounts(baseDate, MAX_DATE_CONSTRAINT_DAYS);
+        final Map<LocalDate, Long> dateCounts = loadReviewDateCounts(baseDate);
 
         LocalDate previousDate = baseDate;
         int previousIndex = currentIndex;
@@ -448,10 +468,11 @@ public class RepetitionScheduleManager {
             }
 
             // Tính khoảng cách tối thiểu giữa lần trước và lần hiện tại theo REVIEW_MULTIPLIERS
-            final int minRequiredGapDays = REVIEW_MULTIPLIERS[repetitionIndex] - REVIEW_MULTIPLIERS[previousIndex];
+            final int minRequiredGapDays = getMinRequiredGap(previousIndex, repetitionIndex);
 
             // Tính ngày đề xuất
-            final LocalDate calculatedDate = calculateAdjustedReviewDate(progress, repetitionIndex, baseDate, dateCounts);
+            final LocalDate calculatedDate = calculateAdjustedReviewDate(progress, repetitionIndex, baseDate,
+                    dateCounts);
 
             // Nếu chưa đạt khoảng cách yêu cầu, buộc đẩy lùi ngày
             final LocalDate newReviewDate = calculatedDate.isAfter(previousDate.plusDays(minRequiredGapDays))
@@ -470,9 +491,15 @@ public class RepetitionScheduleManager {
         }
 
         if (changed) {
-            repetitionRepository.saveAll(futureRepetitions);
+            persistRepetitionsAndUpdateStudyDate(progress, futureRepetitions);
             log.info("Saved updated review dates for progress ID: {}", progress.getId());
         }
+    }
+
+    private void persistRepetitionsAndUpdateStudyDate(ModuleProgress progress,
+                                                      final List<Repetition> futureRepetitions) {
+        repetitionRepository.saveAll(futureRepetitions);
+        updateNextStudyDate(progress);
     }
 
     /**
@@ -583,7 +610,7 @@ public class RepetitionScheduleManager {
                 .map(date -> date.plusDays(7))
                 .orElse(fallbackDate);
 
-        final Map<LocalDate, Long> dateCounts = loadReviewDateCounts(proposedStartDate, MAX_DATE_CONSTRAINT_DAYS);
+        final Map<LocalDate, Long> dateCounts = loadReviewDateCounts(proposedStartDate);
         final LocalDate optimizedStartDate = findOptimalDate(proposedStartDate, dateCounts);
 
         progress.addCycleStart(progress.getCyclesStudied(), optimizedStartDate);
@@ -626,10 +653,7 @@ public class RepetitionScheduleManager {
      * @return The index of the order, or -1 if the order is null.
      */
     private int getOrderIndex(RepetitionOrder order) {
-        if (order == null) {
-            return -1;
-        }
-        return Arrays.asList(RepetitionOrder.values()).indexOf(order);
+        return ORDER_INDEX_MAP.getOrDefault(order, -1);
     }
 
     private boolean validateRepetitionOrder(ModuleProgress progress, RepetitionOrder currentOrder, int currentIndex) {
@@ -642,8 +666,8 @@ public class RepetitionScheduleManager {
     }
 
     @NonNull
-    private Map<LocalDate, Long> loadReviewDateCounts(@NonNull LocalDate startDate, int days) {
-        final LocalDate endDate = startDate.plusDays(days);
+    private Map<LocalDate, Long> loadReviewDateCounts(@NonNull LocalDate startDate) {
+        final LocalDate endDate = startDate.plusDays(RepetitionScheduleManager.MAX_DATE_CONSTRAINT_DAYS);
         final List<Object[]> rawCounts = repetitionRepository.countReviewDatesBetween(startDate, endDate);
         if (rawCounts == null || rawCounts.isEmpty()) {
             return Map.of();
