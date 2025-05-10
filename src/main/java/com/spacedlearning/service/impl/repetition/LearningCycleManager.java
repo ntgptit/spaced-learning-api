@@ -3,12 +3,14 @@ package com.spacedlearning.service.impl.repetition;
 import java.time.LocalDate;
 import java.util.Optional;
 
+import org.springframework.context.MessageSource;
 import org.springframework.stereotype.Component;
 
 import com.spacedlearning.entity.ModuleProgress;
 import com.spacedlearning.entity.Repetition;
 import com.spacedlearning.entity.enums.CycleStudied;
 import com.spacedlearning.entity.enums.RepetitionStatus;
+import com.spacedlearning.exception.SpacedLearningException;
 import com.spacedlearning.repository.ModuleProgressRepository;
 import com.spacedlearning.repository.RepetitionRepository;
 
@@ -25,21 +27,25 @@ public class LearningCycleManager {
     private final RepetitionFactory repetitionFactory;
     private final RepetitionRepository repetitionRepository;
     private final RepetitionScheduleManager scheduleManager;
+    private final MessageSource messageSource;
 
     public void checkAndAdvanceCycle(ModuleProgress progress) {
-        final var total = this.repetitionRepository.countByModuleProgressId(progress.getId());
+        final var progressId = progress.getId();
+
+        final var total = this.repetitionRepository.countByModuleProgressId(progressId);
         if (total == 0) {
-            log.debug("No repetitions found for progress ID: {}. Cannot check cycle.", progress.getId());
-            return;
+            throw SpacedLearningException.validationError(
+                    this.messageSource, "error.progress.noRepetitions",
+                    progressId);
         }
 
         final var completed = this.repetitionRepository.countByModuleProgressIdAndStatus(
-                progress.getId(), RepetitionStatus.COMPLETED);
+                progressId, RepetitionStatus.COMPLETED);
 
         if (completed < total) {
-            log.debug("Not all repetitions completed ({} / {}) for progress ID: {}", completed, total, progress
-                    .getId());
-            return;
+            throw SpacedLearningException.validationError(
+                    this.messageSource, "error.progress.incompleteRepetitions",
+                    completed, total, progressId);
         }
 
         final var current = Optional.ofNullable(progress.getCyclesStudied()).orElse(CycleStudied.FIRST_TIME);
@@ -48,25 +54,33 @@ public class LearningCycleManager {
         case FIRST_REVIEW -> CycleStudied.SECOND_REVIEW;
         case SECOND_REVIEW -> CycleStudied.THIRD_REVIEW;
         case THIRD_REVIEW -> CycleStudied.MORE_THAN_THREE_REVIEWS;
-        default -> current;
+        case MORE_THAN_THREE_REVIEWS -> CycleStudied.MORE_THAN_THREE_REVIEWS;
         };
 
-        if (current == next) {
-            log.info("Current cycle {} is final or unchanged for progress ID: {}", current, progress.getId());
-            return;
+        final var now = LocalDate.now();
+
+        if ((current == next) && !CycleStudied.MORE_THAN_THREE_REVIEWS.equals(current)) {
+            throw SpacedLearningException.validationError(
+                    this.messageSource, "error.progress.finalCycleReached",
+                    current, progressId);
         }
 
-        final var now = LocalDate.now();
-        progress.addCycleStart(next, now);
-        progress.setCyclesStudied(next);
-        this.progressRepository.save(progress);
+        if (CycleStudied.MORE_THAN_THREE_REVIEWS.equals(current)) {
+            final int currentCount = Optional.ofNullable(progress.getExtendedReviewCount()).orElse(0);
+            progress.setExtendedReviewCount(currentCount + 1);
+            this.progressRepository.save(progress);
+            log.info("Extended review cycle #{} for progress ID: {}", progress.getExtendedReviewCount(), progressId);
+        }
 
-        log.info("Advanced cycle from {} to {} for progress ID: {}, starting on {}", current, next, progress.getId(),
-                now);
+        if (current != next) {
+            progress.addCycleStart(next, now);
+            progress.setCyclesStudied(next);
+            this.progressRepository.save(progress);
+            log.info("Advanced cycle from {} to {} for progress ID: {}, starting on {}", current, next, progressId,
+                    now);
+        }
 
-        // Mark incomplete reps as completed
-        final var existing = this.repetitionRepository.findByModuleProgressIdOrderByRepetitionOrder(
-                progress.getId());
+        final var existing = this.repetitionRepository.findByModuleProgressIdOrderByRepetitionOrder(progressId);
         var updated = false;
         for (final Repetition rep : existing) {
             if (rep.getStatus() != RepetitionStatus.COMPLETED) {
@@ -77,7 +91,7 @@ public class LearningCycleManager {
 
         if (updated) {
             this.repetitionRepository.saveAll(existing);
-            log.debug("Marked all unfinished repetitions as COMPLETED for progress ID: {}", progress.getId());
+            log.debug("Marked all unfinished repetitions as COMPLETED for progress ID: {}", progressId);
         }
 
         createNextCycle(progress);

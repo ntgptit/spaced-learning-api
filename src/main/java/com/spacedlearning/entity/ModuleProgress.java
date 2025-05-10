@@ -61,6 +61,13 @@ public class ModuleProgress extends BaseEntity {
     @Builder.Default
     private BigDecimal percentComplete = BigDecimal.ZERO;
 
+    /**
+     * The number of extended review cycles performed after reaching MORE_THAN_THREE_REVIEWS.
+     */
+    @Column(name = "extended_review_count", nullable = true)
+    @Builder.Default
+    private Integer extendedReviewCount = 0;
+
     @Builder.Default
     @OneToMany(mappedBy = "moduleProgress", fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Repetition> repetitions = new ArrayList<>();
@@ -99,7 +106,6 @@ public class ModuleProgress extends BaseEntity {
         if (this.firstLearningDate != null) {
             return this.firstLearningDate;
         }
-
         return LocalDate.now(); // fallback
     }
 

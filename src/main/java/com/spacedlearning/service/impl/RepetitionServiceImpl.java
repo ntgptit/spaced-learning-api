@@ -2,11 +2,13 @@ package com.spacedlearning.service.impl;
 
 import static java.util.Objects.requireNonNull;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
 import org.springframework.context.MessageSource;
+import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -227,6 +229,17 @@ public class RepetitionServiceImpl implements RepetitionService {
         requireNonNull(id, REPETITION_ID_MUST_NOT_BE_NULL);
         requireNonNull(request, "Repetition completion request must not be null");
         requireNonNull(request.getStatus(), "Status must not be null");
+        requireNonNull(request.getScore(), "Score must not be null");
+
+        final BigDecimal score = request.getScore();
+        if ((score.compareTo(BigDecimal.ZERO) < 0) || (score.compareTo(BigDecimal.valueOf(100)) > 0)) {
+            final var message = this.messageSource.getMessage(
+                    "error.repetition.invalidScore",
+                    new Object[] { score },
+                    "Score must be between 0 and 100",
+                    LocaleContextHolder.getLocale());
+            throw SpacedLearningException.validationError(message);
+        }
 
         log.debug("Updating completion for repetition with ID: {}, request: {}", id, request);
         final var repetition = this.validator.findRepetition(id);
