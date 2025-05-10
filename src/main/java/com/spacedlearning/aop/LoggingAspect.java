@@ -27,13 +27,13 @@ public class LoggingAspect {
 
     @AfterThrowing(pointcut = "applicationPointcut()", throwing = "e")
     public void logAfterThrowing(JoinPoint joinPoint, Throwable e) {
-        LoggingAspect.log.error("Exception in {}.{}() with cause = {}",
+        log.error("Exception in {}.{}() with cause = {}",
                 joinPoint.getSignature().getDeclaringTypeName(),
                 joinPoint.getSignature().getName(),
                 e.getCause() != null ? e.getCause() : "NULL");
 
         if (LoggingAspect.log.isDebugEnabled()) {
-            LoggingAspect.log.debug("Exception stacktrace: ", e);
+            LoggingAspect.log.debug("Exception stacktrace: ", e); 
         }
     }
 
