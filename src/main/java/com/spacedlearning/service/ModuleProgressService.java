@@ -40,6 +40,15 @@ public interface ModuleProgressService {
     Page<ModuleProgressSummaryResponse> findAll(Pageable pageable);
 
     /**
+     * Find progress by book ID
+     *
+     * @param bookId   Book ID
+     * @param pageable Pagination information
+     * @return Page of progress summaries
+     */
+    Page<ModuleProgressSummaryResponse> findByBookId(UUID bookId, Pageable pageable);
+
+    /**
      * Find progress by ID
      *
      * @param id Progress ID
@@ -51,27 +60,18 @@ public interface ModuleProgressService {
      * Find progress by module ID
      *
      * @param moduleId Module ID
-     * @param pageable Pagination information
-     * @return Page of progress summaries
+     * @return Progress detail response
      */
-    Page<ModuleProgressSummaryResponse> findByModuleId(UUID moduleId, Pageable pageable);
-
-    /**
-     * Find progress by book ID
-     *
-     * @param bookId   Book ID
-     * @param pageable Pagination information
-     * @return Page of progress summaries
-     */
-    Page<ModuleProgressSummaryResponse> findByBookId(UUID bookId, Pageable pageable);
+    ModuleProgressDetailResponse findByModuleId(UUID moduleId);
 
     /**
      * Find progress by module ID
      *
      * @param moduleId Module ID
-     * @return Progress detail response
+     * @param pageable Pagination information
+     * @return Page of progress summaries
      */
-    ModuleProgressDetailResponse findByModuleId(UUID moduleId);
+    Page<ModuleProgressSummaryResponse> findByModuleId(UUID moduleId, Pageable pageable);
 
     /**
      * Find progress records due for study
@@ -80,7 +80,15 @@ public interface ModuleProgressService {
      * @param pageable  Pagination information
      * @return Page of progress summaries
      */
-    Page<ModuleProgressSummaryResponse> findDueForStudy(LocalDate studyDate, Pageable pageable);
+    Page<ModuleProgressDetailResponse> findDueForStudy(LocalDate studyDate, Pageable pageable);
+
+    /**
+     * Find progress for a module or create a new one if it doesn't exist
+     *
+     * @param moduleId Module ID
+     * @return Progress detail response
+     */
+    ModuleProgressDetailResponse findOrCreateProgressForModule(UUID moduleId);
 
     /**
      * Update a progress record
@@ -90,12 +98,4 @@ public interface ModuleProgressService {
      * @return Updated progress detail response
      */
     ModuleProgressDetailResponse update(UUID id, ModuleProgressUpdateRequest request);
-
-    /**
-     * Find progress for a module or create a new one if it doesn't exist
-     *
-     * @param moduleId Module ID
-     * @return Progress detail response
-     */
-    ModuleProgressDetailResponse findOrCreateProgressForModule(UUID moduleId);
 }

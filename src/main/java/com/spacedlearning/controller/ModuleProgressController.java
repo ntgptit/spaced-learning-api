@@ -3,7 +3,6 @@ package com.spacedlearning.controller;
 import java.time.LocalDate;
 import java.util.UUID;
 
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -53,7 +52,7 @@ public class ModuleProgressController {
     public ResponseEntity<DataResponse<ModuleProgressDetailResponse>> createProgress(
             @Valid @RequestBody ModuleProgressCreateRequest request) {
         log.debug("REST request to create progress: {}", request);
-        final ModuleProgressDetailResponse createdProgress = progressService.create(request);
+        final var createdProgress = this.progressService.create(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(DataResponse.of(createdProgress));
     }
 
@@ -61,8 +60,17 @@ public class ModuleProgressController {
     @Operation(summary = "Delete progress", description = "Deletes a progress record by ID")
     public ResponseEntity<SuccessResponse> deleteProgress(@PathVariable UUID id) {
         log.debug("REST request to delete progress with ID: {}", id);
-        progressService.delete(id);
+        this.progressService.delete(id);
         return ResponseEntity.ok(SuccessResponse.of("Progress deleted successfully"));
+    }
+
+    @GetMapping("/module/{moduleId}/find-or-create")
+    @Operation(summary = "Find or create progress for module", description = "Finds existing progress for a module or creates a new one if it doesn't exist")
+    public ResponseEntity<DataResponse<ModuleProgressDetailResponse>> findOrCreateProgressForModule(
+            @PathVariable UUID moduleId) {
+        log.debug("REST request to find or create progress for module ID: {}", moduleId);
+        final var progress = this.progressService.findOrCreateProgressForModule(moduleId);
+        return ResponseEntity.ok(DataResponse.of(progress));
     }
 
     @GetMapping
@@ -71,17 +79,17 @@ public class ModuleProgressController {
     public ResponseEntity<PageResponse<ModuleProgressSummaryResponse>> getAllProgress(
             @PageableDefault(size = 20) Pageable pageable) {
         log.debug("REST request to get all progress records, pageable: {}", pageable);
-        final Page<ModuleProgressSummaryResponse> page = progressService.findAll(pageable);
+        final var page = this.progressService.findAll(pageable);
         return ResponseEntity.ok(PageUtils.createPageResponse(page, pageable));
     }
 
     @GetMapping("/due")
     @Operation(summary = "Get due progress records", description = "Retrieves a paginated list of progress records due for study")
-    public ResponseEntity<PageResponse<ModuleProgressSummaryResponse>> getDueProgress(
+    public ResponseEntity<PageResponse<ModuleProgressDetailResponse>> getDueProgress(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate studyDate,
             @PageableDefault(size = 20) Pageable pageable) {
         log.debug("REST request to get due progress records on date: {}, pageable: {}", studyDate, pageable);
-        final Page<ModuleProgressSummaryResponse> page = progressService.findDueForStudy(studyDate, pageable);
+        final var page = this.progressService.findDueForStudy(studyDate, pageable);
         return ResponseEntity.ok(PageUtils.createPageResponse(page, pageable));
     }
 
@@ -89,17 +97,8 @@ public class ModuleProgressController {
     @Operation(summary = "Get progress by ID", description = "Retrieves a progress record by its ID with detailed information")
     public ResponseEntity<DataResponse<ModuleProgressDetailResponse>> getProgress(@PathVariable UUID id) {
         log.debug("REST request to get progress with ID: {}", id);
-        final ModuleProgressDetailResponse progress = progressService.findById(id);
+        final var progress = this.progressService.findById(id);
         return ResponseEntity.ok(DataResponse.of(progress));
-    }
-
-    @GetMapping("/module/{moduleId}")
-    @Operation(summary = "Get progress by module ID", description = "Retrieves a paginated list of progress records for a module")
-    public ResponseEntity<PageResponse<ModuleProgressSummaryResponse>> getProgressByModuleId(
-            @PathVariable UUID moduleId, @PageableDefault(size = 20) Pageable pageable) {
-        log.debug("REST request to get progress by module ID: {}, pageable: {}", moduleId, pageable);
-        final Page<ModuleProgressSummaryResponse> page = progressService.findByModuleId(moduleId, pageable);
-        return ResponseEntity.ok(PageUtils.createPageResponse(page, pageable));
     }
 
     @GetMapping("/book/{bookId}")
@@ -107,7 +106,16 @@ public class ModuleProgressController {
     public ResponseEntity<PageResponse<ModuleProgressSummaryResponse>> getProgressByBook(
             @PathVariable UUID bookId, @PageableDefault(size = 20) Pageable pageable) {
         log.debug("REST request to get progress by book ID: {}, pageable: {}", bookId, pageable);
-        final Page<ModuleProgressSummaryResponse> page = progressService.findByBookId(bookId, pageable);
+        final var page = this.progressService.findByBookId(bookId, pageable);
+        return ResponseEntity.ok(PageUtils.createPageResponse(page, pageable));
+    }
+
+    @GetMapping("/module/{moduleId}")
+    @Operation(summary = "Get progress by module ID", description = "Retrieves a paginated list of progress records for a module")
+    public ResponseEntity<PageResponse<ModuleProgressSummaryResponse>> getProgressByModuleId(
+            @PathVariable UUID moduleId, @PageableDefault(size = 20) Pageable pageable) {
+        log.debug("REST request to get progress by module ID: {}, pageable: {}", moduleId, pageable);
+        final var page = this.progressService.findByModuleId(moduleId, pageable);
         return ResponseEntity.ok(PageUtils.createPageResponse(page, pageable));
     }
 
@@ -116,16 +124,7 @@ public class ModuleProgressController {
     public ResponseEntity<DataResponse<ModuleProgressDetailResponse>> getProgressDetailByModule(
             @PathVariable UUID moduleId) {
         log.debug("REST request to get detailed progress for module ID: {}", moduleId);
-        final ModuleProgressDetailResponse progress = progressService.findByModuleId(moduleId);
-        return ResponseEntity.ok(DataResponse.of(progress));
-    }
-
-    @GetMapping("/module/{moduleId}/find-or-create")
-    @Operation(summary = "Find or create progress for module", description = "Finds existing progress for a module or creates a new one if it doesn't exist")
-    public ResponseEntity<DataResponse<ModuleProgressDetailResponse>> findOrCreateProgressForModule(
-            @PathVariable UUID moduleId) {
-        log.debug("REST request to find or create progress for module ID: {}", moduleId);
-        final ModuleProgressDetailResponse progress = progressService.findOrCreateProgressForModule(moduleId);
+        final var progress = this.progressService.findByModuleId(moduleId);
         return ResponseEntity.ok(DataResponse.of(progress));
     }
 
@@ -134,7 +133,7 @@ public class ModuleProgressController {
     public ResponseEntity<DataResponse<ModuleProgressDetailResponse>> updateProgress(@PathVariable UUID id,
             @Valid @RequestBody ModuleProgressUpdateRequest request) {
         log.debug("REST request to update progress with ID: {}, request: {}", id, request);
-        final ModuleProgressDetailResponse updatedProgress = progressService.update(id, request);
+        final var updatedProgress = this.progressService.update(id, request);
         return ResponseEntity.ok(DataResponse.of(updatedProgress));
     }
 }

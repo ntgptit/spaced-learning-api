@@ -181,15 +181,22 @@ public interface ModuleRepository extends JpaRepository<Module, UUID> {
                 UNION ALL SELECT 'THIRD_REVIEW'
                 UNION ALL SELECT 'MORE_THAN_THREE_REVIEWS'
             )
-            SELECT ct.cycle_name, COALESCE(COUNT(mp.cycles_studied), 0)
-            FROM cycle_types ct
+            SELECT
+                ct.cycle_name AS cycles_studied,
+                COALESCE(COUNT(mp.cycles_studied), 0) AS cycle_count
+            FROM
+                cycle_types ct
             LEFT JOIN (
                 spaced_learning.module_progress mp
-                INNER JOIN spaced_learning.modules m ON m.id = mp.module_id
-                INNER JOIN spaced_learning.books b ON m.book_id = b.id
-                WHERE b.deleted_at IS NULL AND m.deleted_at IS NULL
+                INNER JOIN spaced_learning.modules m
+                    ON m.id = mp.module_id
+                INNER JOIN spaced_learning.books b
+                    ON m.book_id = b.id
+                    AND b.deleted_at IS NULL
+                    AND m.deleted_at IS NULL
             ) ON ct.cycle_name = mp.cycles_studied
-            GROUP BY ct.cycle_name
+            GROUP BY
+                ct.cycle_name
             ORDER BY
                 CASE ct.cycle_name
                     WHEN 'FIRST_TIME' THEN 1

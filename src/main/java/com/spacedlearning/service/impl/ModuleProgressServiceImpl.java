@@ -122,11 +122,11 @@ public class ModuleProgressServiceImpl implements ModuleProgressService {
 
     @Override
     @Transactional(readOnly = true)
-    public Page<ModuleProgressSummaryResponse> findDueForStudy(LocalDate studyDate, Pageable pageable) {
+    public Page<ModuleProgressDetailResponse> findDueForStudy(LocalDate studyDate, Pageable pageable) {
         final var date = studyDate != null ? studyDate : LocalDate.now();
         log.debug("Fetching module progress due for study on or before: {}, pageable: {}", date, pageable);
         return this.progressRepository.findByNextStudyDateLessThanEqual(date, pageable)
-                .map(this.progressMapper::toSummaryDto);
+                .map(this.progressMapper::toDto);
     }
 
     @Override
