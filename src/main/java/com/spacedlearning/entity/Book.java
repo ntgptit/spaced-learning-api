@@ -4,8 +4,10 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+
 import com.spacedlearning.entity.enums.BookStatus;
 import com.spacedlearning.entity.enums.DifficultyLevel;
+
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -18,19 +20,22 @@ import jakarta.persistence.Table;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import lombok.ToString;
 
-/**
- * Entity representing a book in the system.
- */
 @Entity
+@Table(name = "books", schema = "spaced_learning")
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-@Table(name = "books", schema = "spaced_learning")
+@Builder(toBuilder = true)
+@EqualsAndHashCode(callSuper = true, onlyExplicitlyIncluded = true)
+@ToString(exclude = { "modules", "users" })
 public class Book extends BaseEntity {
 
     @NotBlank
@@ -42,7 +47,8 @@ public class Book extends BaseEntity {
     private String description;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "status", length = 20)
+    @Column(name = "status", length = 20, nullable = false)
+    @Builder.Default
     private BookStatus status = BookStatus.DRAFT;
 
     @Enumerated(EnumType.STRING)
@@ -53,44 +59,29 @@ public class Book extends BaseEntity {
     @Column(name = "category", length = 50)
     private String category;
 
-    @Column(name = "book_no")
+    @Column(name = "book_no", nullable = false)
+    @Builder.Default
     private Integer bookNo = 0;
 
-    @OneToMany(mappedBy = "book", fetch = FetchType.LAZY, cascade = CascadeType.ALL,
-            orphanRemoval = true)
+    @OneToMany(mappedBy = "book", fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
     private List<Module> modules = new ArrayList<>();
 
-    // Added: Many-to-Many relationship with User
     @ManyToMany(mappedBy = "books", fetch = FetchType.LAZY)
+    @Builder.Default
     private Set<User> users = new HashSet<>();
 
-    /**
-     * Adds a module to this book and sets the bidirectional relationship.
-     *
-     * @param module The module to add
-     * @return The added module
-     */
     public Module addModule(Module module) {
-        modules.add(module);
+        this.modules.add(module);
         module.setBook(this);
         return module;
     }
 
-    /**
-     * Removes a module from this book.
-     *
-     * @param module The module to remove
-     * @return True if the module was removed, false otherwise
-     */
     public boolean removeModule(Module module) {
-        final boolean removed = modules.remove(module);
+        final var removed = this.modules.remove(module);
         if (removed) {
             module.setBook(null);
         }
         return removed;
-    }
-
-    public Book(String string) {
-        // TODO Auto-generated constructor stub
     }
 }

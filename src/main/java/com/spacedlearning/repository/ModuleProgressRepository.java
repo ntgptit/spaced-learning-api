@@ -1,6 +1,9 @@
 package com.spacedlearning.repository;
 
-import com.spacedlearning.entity.ModuleProgress;
+import java.time.LocalDate;
+import java.util.Optional;
+import java.util.UUID;
+
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
@@ -9,9 +12,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
-import java.time.LocalDate;
-import java.util.Optional;
-import java.util.UUID;
+import com.spacedlearning.entity.ModuleProgress;
 
 /**
  * Repository for ModuleProgress entity
@@ -26,15 +27,6 @@ public interface ModuleProgressRepository extends JpaRepository<ModuleProgress, 
      * @return true if exists, false otherwise
      */
     boolean existsByModuleId(UUID moduleId);
-
-    /**
-     * Find progress by module ID
-     *
-     * @param moduleId Module ID
-     * @param pageable Pagination information
-     * @return Page of progress records
-     */
-    Page<ModuleProgress> findByModuleId(UUID moduleId, Pageable pageable);
 
     /**
      * Find progress records by book
@@ -55,6 +47,15 @@ public interface ModuleProgressRepository extends JpaRepository<ModuleProgress, 
     Optional<ModuleProgress> findByModuleId(UUID moduleId);
 
     /**
+     * Find progress by module ID
+     *
+     * @param moduleId Module ID
+     * @param pageable Pagination information
+     * @return Page of progress records
+     */
+    Page<ModuleProgress> findByModuleId(UUID moduleId, Pageable pageable);
+
+    /**
      * Find progress records due for study on or before a specific date
      *
      * @param studyDate Study date
@@ -70,7 +71,7 @@ public interface ModuleProgressRepository extends JpaRepository<ModuleProgress, 
      * @param id Progress ID
      * @return Optional containing progress with repetitions
      */
-    @EntityGraph(attributePaths = {"repetitions"})
+    @EntityGraph(attributePaths = { "repetitions" })
     Optional<ModuleProgress> findWithRepetitionsById(UUID id);
 
 }

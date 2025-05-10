@@ -15,35 +15,39 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import lombok.ToString;
 
-/**
- * Entity representing a repetition record for spaced learning.
- */
 @Entity
+@Table(name = "repetitions", schema = "spaced_learning")
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-@Table(name = "repetitions", schema = "spaced_learning")
+@Builder(toBuilder = true)
+@EqualsAndHashCode(callSuper = true)
+@ToString(exclude = "moduleProgress")
 public class Repetition extends BaseEntity {
 
-	@NotNull
-	@ManyToOne(fetch = FetchType.LAZY)
-	@JoinColumn(name = "module_progress_id", nullable = false)
-	private ModuleProgress moduleProgress;
+    @NotNull
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "module_progress_id", nullable = false)
+    private ModuleProgress moduleProgress;
 
-	@NotNull
-	@Enumerated(EnumType.STRING)
-	@Column(name = "repetition_order", length = 20, nullable = false)
-	private RepetitionOrder repetitionOrder;
+    @NotNull
+    @Enumerated(EnumType.STRING)
+    @Column(name = "repetition_order", length = 20, nullable = false)
+    private RepetitionOrder repetitionOrder;
 
-	@Enumerated(EnumType.STRING)
-	@Column(name = "status", length = 50)
-	private RepetitionStatus status = RepetitionStatus.NOT_STARTED;
+    @Builder.Default
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status", length = 50, nullable = false)
+    private RepetitionStatus status = RepetitionStatus.NOT_STARTED;
 
-	@Column(name = "review_date")
-	private LocalDate reviewDate;
+    @Column(name = "review_date")
+    private LocalDate reviewDate;
 }

@@ -12,9 +12,11 @@ import jakarta.persistence.ManyToMany;
 import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
+import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import lombok.ToString;
 
 /**
  * Role entity for authorization.
@@ -26,41 +28,24 @@ import lombok.Setter;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@EqualsAndHashCode(onlyExplicitlyIncluded = true)
+@ToString(onlyExplicitlyIncluded = true)
 public class Role {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @EqualsAndHashCode.Include
+    @ToString.Include
     private Long id;
 
     @Column(nullable = false, unique = true, length = 50)
+    @ToString.Include
     private String name;
 
     @Column(length = 255)
     private String description;
 
-    @ManyToMany(mappedBy = "roles")
     @Builder.Default
+    @ManyToMany(mappedBy = "roles")
     private Set<User> users = new HashSet<>();
-
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) {
-			return true;
-		}
-        if (!(o instanceof final Role role)) {
-			return false;
-		}
-        return id != null && id.equals(role.getId());
-    }
-
-    @Override
-    public int hashCode() {
-        // Use a constant value for entities with null id
-        return id != null ? id.hashCode() : 31;
-    }
-
-    @Override
-    public String toString() {
-        return "Role{" + "id=" + id + ", name='" + name + '\'' + '}';
-    }
 }

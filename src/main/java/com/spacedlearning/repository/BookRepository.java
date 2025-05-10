@@ -1,9 +1,9 @@
-// File: src/main/java/com/spacedlearning/repository/BookRepository.java
 package com.spacedlearning.repository;
 
-import com.spacedlearning.entity.Book;
-import com.spacedlearning.entity.enums.BookStatus;
-import com.spacedlearning.entity.enums.DifficultyLevel;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
@@ -12,9 +12,9 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
+import com.spacedlearning.entity.Book;
+import com.spacedlearning.entity.enums.BookStatus;
+import com.spacedlearning.entity.enums.DifficultyLevel;
 
 /**
  * Repository for Book entity
@@ -22,18 +22,16 @@ import java.util.UUID;
 @Repository
 public interface BookRepository extends JpaRepository<Book, UUID> {
 
-    Optional<Book> findByName(String name);
-
     /**
      * Find all categories from books
      *
      * @return List of unique categories
      */
-    @Query("SELECT DISTINCT b.category FROM Book b WHERE b.category IS NOT NULL ORDER BY b.category")
+    @Query("SELECT DISTINCT b.category FROM Book b WHERE b.category IS NOT NULL AND b.deletedAt IS NULL ORDER BY b.category")
     List<String> findAllCategories();
 
     /**
-     * Find published books with published status and optional filtering
+     * Find published books with optional filtering
      *
      * @param status          Book status (optional)
      * @param difficultyLevel Difficulty level (optional)
@@ -41,12 +39,27 @@ public interface BookRepository extends JpaRepository<Book, UUID> {
      * @param pageable        Pagination information
      * @return Page of books
      */
-    @Query("SELECT b FROM Book b WHERE " + "(:status IS NULL OR b.status = :status) "
-            + "AND (:difficultyLevel IS NULL OR b.difficultyLevel = :difficultyLevel) "
-            + "AND (:category IS NULL OR b.category = :category)")
+    @Query("""
+            SELECT b FROM Book b WHERE b.deletedAt IS NULL \
+            AND (:status IS NULL OR b.status = :status) \
+            AND (:difficultyLevel IS NULL OR b.difficultyLevel = :difficultyLevel) \
+            AND (:category IS NULL OR b.category = :category)""")
     Page<Book> findBooksByFilters(@Param("status") BookStatus status,
-                                  @Param("difficultyLevel") DifficultyLevel difficultyLevel, @Param("category") String category,
-                                  Pageable pageable);
+            @Param("difficultyLevel") DifficultyLevel difficultyLevel,
+            @Param("category") String category,
+            Pageable pageable);
+
+    Optional<Book> findByName(String name);
+
+    /**
+     * Find book by ID with modules eagerly loaded
+     *
+     * @param id Book ID
+     * @return Optional containing book with modules
+     */
+    @EntityGraph(attributePaths = { "modules" })
+    @Query("SELECT b FROM Book b WHERE b.id = :id AND b.deletedAt IS NULL")
+    Optional<Book> findWithModulesById(@Param("id") UUID id);
 
     /**
      * Find books by name containing the search term
@@ -55,14 +68,6 @@ public interface BookRepository extends JpaRepository<Book, UUID> {
      * @param pageable   Pagination information
      * @return Page of books
      */
-    Page<Book> findByNameContainingIgnoreCase(String searchTerm, Pageable pageable);
-
-    /**
-     * Find book by ID with modules eagerly loaded
-     *
-     * @param id Book ID
-     * @return Optional containing book with modules
-     */
-    @EntityGraph(attributePaths = {"modules"})
-    Optional<Book> findWithModulesById(UUID id);
+    @Query("SELECT b FROM Book b WHERE LOWER(b.name) LIKE LOWER(CONCAT('%', :searchTerm, '%')) AND b.deletedAt IS NULL")
+    Page<Book> searchByName(@Param("searchTerm") String searchTerm, Pageable pageable);
 }

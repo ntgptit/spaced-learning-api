@@ -21,25 +21,26 @@ import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-import lombok.extern.slf4j.Slf4j;
+import lombok.ToString;
 
-/**
- * Entity representing a user's progress for a specific module.
- */
 @Entity
+@Table(name = "module_progress", schema = "spaced_learning")
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-@Table(name = "module_progress", schema = "spaced_learning")
-@Slf4j
+@Builder(toBuilder = true)
+@ToString(exclude = { "repetitions", "learningCycles" })
+@EqualsAndHashCode(callSuper = true)
 public class ModuleProgress extends BaseEntity {
 
     @NotNull
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "module_id", nullable = false)
     private Module module;
 
@@ -47,7 +48,8 @@ public class ModuleProgress extends BaseEntity {
     private LocalDate firstLearningDate;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "cycles_studied", length = 30)
+    @Column(name = "cycles_studied", length = 30, nullable = false)
+    @Builder.Default
     private CycleStudied cyclesStudied = CycleStudied.FIRST_TIME;
 
     @Column(name = "next_study_date")
@@ -56,30 +58,33 @@ public class ModuleProgress extends BaseEntity {
     @DecimalMin("0.00")
     @DecimalMax("100.00")
     @Column(name = "percent_complete", precision = 5, scale = 2)
+    @Builder.Default
     private BigDecimal percentComplete = BigDecimal.ZERO;
 
+    @Builder.Default
     @OneToMany(mappedBy = "moduleProgress", fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Repetition> repetitions = new ArrayList<>();
 
+    @Builder.Default
     @OneToMany(mappedBy = "moduleProgress", fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
     private List<LearningCycle> learningCycles = new ArrayList<>();
 
+    public void addCycleStart(CycleStudied cycle, LocalDate date) {
+        final var learningCycle = new LearningCycle();
+        learningCycle.setModuleProgress(this);
+        learningCycle.setCycle(cycle);
+        learningCycle.setStartDate(date);
+        this.learningCycles.add(learningCycle);
+    }
+
     public Repetition addRepetition(Repetition repetition) {
-        repetitions.add(repetition);
+        this.repetitions.add(repetition);
         repetition.setModuleProgress(this);
         return repetition;
     }
 
-    public boolean removeRepetition(Repetition repetition) {
-        final boolean removed = repetitions.remove(repetition);
-        if (removed) {
-            repetition.setModuleProgress(null);
-        }
-        return removed;
-    }
-
     public LocalDate findLatestCycleStart(CycleStudied cycle) {
-        return learningCycles.stream()
+        return this.learningCycles.stream()
                 .filter(r -> r.getCycle() == cycle)
                 .map(LearningCycle::getStartDate)
                 .max(LocalDate::compareTo)
@@ -87,24 +92,22 @@ public class ModuleProgress extends BaseEntity {
     }
 
     public LocalDate getEffectiveStartDate() {
-        final LocalDate cycleStart = findLatestCycleStart(cyclesStudied);
+        final var cycleStart = findLatestCycleStart(this.cyclesStudied);
         if (cycleStart != null) {
             return cycleStart;
         }
-
-        if (firstLearningDate != null) {
-            return firstLearningDate;
+        if (this.firstLearningDate != null) {
+            return this.firstLearningDate;
         }
 
-        log.warn("Missing effective start date for moduleProgress ID: {}. Fallback to now.", getId());
-        return LocalDate.now();
+        return LocalDate.now(); // fallback
     }
 
-    public void addCycleStart(CycleStudied cycle, LocalDate date) {
-        final LearningCycle learningCycle = new LearningCycle();
-        learningCycle.setModuleProgress(this);
-        learningCycle.setCycle(cycle);
-        learningCycle.setStartDate(date);
-        learningCycles.add(learningCycle);
+    public boolean removeRepetition(Repetition repetition) {
+        final var removed = this.repetitions.remove(repetition);
+        if (removed) {
+            repetition.setModuleProgress(null);
+        }
+        return removed;
     }
 }

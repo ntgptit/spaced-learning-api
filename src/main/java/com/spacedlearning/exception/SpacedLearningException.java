@@ -12,188 +12,101 @@ import lombok.Getter;
 public class SpacedLearningException extends RuntimeException {
 
     private static final long serialVersionUID = 1509401079030096266L;
-    /**
-     * Creates a forbidden exception with a message from MessageSource
-     *
-     * @param messageSource The message source
-     * @param key The message key
-     * @param args The message arguments
-     * @return The exception
-     */
-    public static SpacedLearningException forbidden(
-            MessageSource messageSource, String key, Object... args) {
 
-        Objects.requireNonNull(messageSource, "MessageSource must not be null");
-        Objects.requireNonNull(key, "Message key must not be null");
+    public static SpacedLearningException forbidden(MessageSource messageSource, String key, Object... args) {
+        validate(messageSource, key);
+        return new SpacedLearningException(
+                messageSource.getMessage(key, args, LocaleContextHolder.getLocale()),
+                HttpStatus.FORBIDDEN);
+    }
+
+    public static SpacedLearningException forbidden(String message) {
+        return new SpacedLearningException(validateMsg(message), HttpStatus.FORBIDDEN);
+    }
+
+    public static SpacedLearningException resourceAlreadyExists(
+            MessageSource messageSource, String resourceKey, String field, Object value) {
+
+        validate(messageSource, resourceKey, field);
+        final var resourceName = messageSource.getMessage(resourceKey, null, resourceKey, LocaleContextHolder
+                .getLocale());
 
         return new SpacedLearningException(
-            messageSource.getMessage(key, args, LocaleContextHolder.getLocale()),
-            HttpStatus.FORBIDDEN);
-    }
-
-    /**
-     * Creates a forbidden exception with a custom message
-     *
-     * @param message The error message
-     * @return The exception
-     */
-    public static SpacedLearningException forbidden(String message) {
-        Objects.requireNonNull(message, "Message must not be null");
-        return new SpacedLearningException(message, HttpStatus.FORBIDDEN);
-    }
-
-    /**
-     * Creates a resource already exists exception with a message from MessageSource
-     *
-     * @param messageSource The message source
-     * @param resourceKey The resource key
-     * @param field The field name
-     * @param value The field value
-     * @return The exception
-     */
-    public static SpacedLearningException resourceAlreadyExists(
-            MessageSource messageSource,
-            String resourceKey,
-            String field,
-            Object value) {
-
-        Objects.requireNonNull(messageSource, "MessageSource must not be null");
-        Objects.requireNonNull(resourceKey, "Resource key must not be null");
-        Objects.requireNonNull(field, "Field name must not be null");
-
-        final String resourceName = messageSource.getMessage(
-                resourceKey,
-                null,
-                resourceKey,
-                LocaleContextHolder.getLocale());
-
-        return new SpacedLearningException(messageSource.getMessage(
-                "error.resource.alreadyexists",
-                new Object[]{ resourceName, field, value },
-                LocaleContextHolder.getLocale()),
+                messageSource.getMessage("error.resource.alreadyexists",
+                        new Object[] { resourceName, field, value },
+                        LocaleContextHolder.getLocale()),
                 HttpStatus.CONFLICT);
     }
 
-	/**
-     * Creates a resource already exists exception with a custom message
-     *
-     * @param resourceName The name of the resource
-     * @param field The field name
-     * @param value The field value
-     * @return The exception
-     */
-    public static SpacedLearningException resourceAlreadyExists(
-            String resourceName, String field, Object value) {
+    // ========== FACTORY METHODS ==========
 
-        Objects.requireNonNull(resourceName, "Resource name must not be null");
-        Objects.requireNonNull(field, "Field name must not be null");
+    public static SpacedLearningException resourceAlreadyExists(String resourceName, String field, Object value) {
+        validate(resourceName, field);
+        return new SpacedLearningException(
+                String.format("%s already exists with %s: %s", resourceName, field, value),
+                HttpStatus.CONFLICT);
+    }
+
+    public static SpacedLearningException resourceNotFound(MessageSource messageSource, String resourceKey, Object id) {
+        validate(messageSource, resourceKey);
+        final var resourceName = messageSource.getMessage(resourceKey, null, resourceKey, LocaleContextHolder
+                .getLocale());
 
         return new SpacedLearningException(
-            String.format("%s already exists with %s: %s", resourceName, field, value),
-            HttpStatus.CONFLICT);
+                messageSource.getMessage("error.resource.notfound",
+                        new Object[] { resourceName, id }, LocaleContextHolder.getLocale()),
+                HttpStatus.NOT_FOUND);
     }
 
-	/**
-	 * Creates a resource not found exception with a message from MessageSource
-	 * 
-	 * @param messageSource The message source
-	 * @param resourceKey   The resource key
-	 * @param id            The resource ID
-	 * @return The exception
-	 */
-	public static SpacedLearningException resourceNotFound(MessageSource messageSource, String resourceKey, Object id) {
-
-		Objects.requireNonNull(messageSource, "MessageSource must not be null");
-		Objects.requireNonNull(resourceKey, "Resource key must not be null");
-
-		final String resourceName = messageSource.getMessage(resourceKey, null, resourceKey,
-				LocaleContextHolder.getLocale());
-
-		return new SpacedLearningException(messageSource.getMessage("error.resource.notfound",
-				new Object[] { resourceName, id }, LocaleContextHolder.getLocale()), HttpStatus.NOT_FOUND);
-    }
-
-	/**
-     * Creates a resource not found exception with a custom message
-     *
-     * @param resourceName The name of the resource
-     * @param id The resource ID
-     * @return The exception
-     */
     public static SpacedLearningException resourceNotFound(String resourceName, Object id) {
-        Objects.requireNonNull(resourceName, "Resource name must not be null");
+        validate(resourceName);
         return new SpacedLearningException(
                 String.format("%s not found with id: %s", resourceName, id),
                 HttpStatus.NOT_FOUND);
     }
 
-	/**
-     * Creates an unauthorized exception with a message from MessageSource
-     *
-     * @param messageSource The message source
-     * @param key The message key
-     * @param args The message arguments
-     * @return The exception
-     */
-    public static SpacedLearningException unauthorized(
-            MessageSource messageSource, String key, Object... args) {
-
-        Objects.requireNonNull(messageSource, "MessageSource must not be null");
-        Objects.requireNonNull(key, "Message key must not be null");
-
+    public static SpacedLearningException unauthorized(MessageSource messageSource, String key, Object... args) {
+        validate(messageSource, key);
         return new SpacedLearningException(
-            messageSource.getMessage(key, args, LocaleContextHolder.getLocale()),
-            HttpStatus.UNAUTHORIZED);
+                messageSource.getMessage(key, args, LocaleContextHolder.getLocale()),
+                HttpStatus.UNAUTHORIZED);
     }
 
-	/**
-     * Creates an unauthorized exception with a custom message
-     *
-     * @param message The error message
-     * @return The exception
-     */
     public static SpacedLearningException unauthorized(String message) {
-        Objects.requireNonNull(message, "Message must not be null");
-        return new SpacedLearningException(message, HttpStatus.UNAUTHORIZED);
+        return new SpacedLearningException(validateMsg(message), HttpStatus.UNAUTHORIZED);
     }
 
-	/**
-	 * Creates a validation error exception with a message from MessageSource
-	 * 
-	 * @param messageSource The message source
-	 * @param key           The message key
-	 * @param args          The message arguments
-	 * @return The exception
-	 */
-	public static SpacedLearningException validationError(MessageSource messageSource, String key, Object... args) {
+    private static void validate(Object... args) {
+        for (final Object arg : args) {
+            Objects.requireNonNull(arg, arg + " must not be null");
+        }
+    }
 
-		Objects.requireNonNull(messageSource, "MessageSource must not be null");
-		Objects.requireNonNull(key, "Message key must not be null");
+    private static String validateMsg(String msg) {
+        return Objects.requireNonNull(msg, "Message must not be null");
+    }
 
+    public static SpacedLearningException validationError(MessageSource messageSource, String key, Object... args) {
+        validate(messageSource, key);
         return new SpacedLearningException(
-            messageSource.getMessage(key, args, LocaleContextHolder.getLocale()),
-            HttpStatus.BAD_REQUEST);
+                messageSource.getMessage(key, args, LocaleContextHolder.getLocale()),
+                HttpStatus.BAD_REQUEST);
     }
 
-	/**
-     * Creates a validation error exception with a custom message
-     *
-     * @param message The error message
-     * @return The exception
-     */
     public static SpacedLearningException validationError(String message) {
-        Objects.requireNonNull(message, "Message must not be null");
-        return new SpacedLearningException(message, HttpStatus.BAD_REQUEST);
+        return new SpacedLearningException(validateMsg(message), HttpStatus.BAD_REQUEST);
     }
 
-	private final HttpStatus status;
+    private final HttpStatus status;
 
-	public SpacedLearningException(String message, HttpStatus status) {
-		super(message);
-		this.status = status;
-	}
+    // ========== VALIDATION HELPERS ==========
 
-	public SpacedLearningException(String message, Throwable cause, HttpStatus status) {
+    public SpacedLearningException(String message, HttpStatus status) {
+        super(message);
+        this.status = status;
+    }
+
+    public SpacedLearningException(String message, Throwable cause, HttpStatus status) {
         super(message, cause);
         this.status = status;
     }

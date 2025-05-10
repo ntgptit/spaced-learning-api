@@ -16,67 +16,57 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import lombok.ToString;
 
-/**
- * Entity representing a module in a book.
- */
 @Entity
+@Table(name = "modules", schema = "spaced_learning")
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-@Table(name = "modules", schema = "spaced_learning")
+@Builder(toBuilder = true)
+@ToString(exclude = "progress")
 public class Module extends BaseEntity {
 
-	@NotNull
-	@ManyToOne(fetch = FetchType.LAZY)
-	@JoinColumn(name = "book_id", nullable = false)
-	private Book book;
+    @NotNull
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "book_id", nullable = false)
+    private Book book;
 
-	@NotNull
-	@Min(1)
-	@Column(name = "module_no", nullable = false)
-	private Integer moduleNo;
+    @NotNull
+    @Min(1)
+    @Column(name = "module_no", nullable = false)
+    private Integer moduleNo;
 
-	@NotBlank
-	@Size(max = 255)
-	@Column(name = "title", length = 255, nullable = false)
-	private String title;
+    @NotBlank
+    @Size(max = 255)
+    @Column(name = "title", length = 255, nullable = false)
+    private String title;
 
-	@Min(0)
-	@Column(name = "word_count")
-	private Integer wordCount = 0;
+    @Builder.Default
+    @Min(0)
+    @Column(name = "word_count", nullable = false)
+    private Integer wordCount = 0;
 
-	@OneToMany(mappedBy = "module", fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
-	private List<ModuleProgress> progress = new ArrayList<>();
+    @Builder.Default
+    @OneToMany(mappedBy = "module", fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<ModuleProgress> progress = new ArrayList<>();
 
-	/**
-	 * Adds a progress record to this module and sets the bidirectional
-	 * relationship.
-	 *
-	 * @param moduleProgress The progress to add
-	 * @return The added progress
-	 */
-	public ModuleProgress addProgress(ModuleProgress moduleProgress) {
-		progress.add(moduleProgress);
-		moduleProgress.setModule(this);
-		return moduleProgress;
-	}
+    public ModuleProgress addProgress(ModuleProgress moduleProgress) {
+        this.progress.add(moduleProgress);
+        moduleProgress.setModule(this);
+        return moduleProgress;
+    }
 
-	/**
-	 * Removes a progress record from this module.
-	 *
-	 * @param moduleProgress The progress to remove
-	 * @return True if the progress was removed, false otherwise
-	 */
-	public boolean removeProgress(ModuleProgress moduleProgress) {
-		final boolean removed = progress.remove(moduleProgress);
-		if (removed) {
-			moduleProgress.setModule(null);
-		}
-		return removed;
-	}
+    public boolean removeProgress(ModuleProgress moduleProgress) {
+        final var removed = this.progress.remove(moduleProgress);
+        if (removed) {
+            moduleProgress.setModule(null);
+        }
+        return removed;
+    }
 }

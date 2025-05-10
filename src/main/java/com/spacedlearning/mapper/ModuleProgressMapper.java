@@ -1,10 +1,8 @@
 package com.spacedlearning.mapper;
 
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 
 import org.apache.commons.collections4.CollectionUtils;
 import org.springframework.stereotype.Component;
@@ -13,15 +11,11 @@ import com.spacedlearning.dto.progress.ModuleProgressCreateRequest;
 import com.spacedlearning.dto.progress.ModuleProgressDetailResponse;
 import com.spacedlearning.dto.progress.ModuleProgressSummaryResponse;
 import com.spacedlearning.dto.progress.ModuleProgressUpdateRequest;
-import com.spacedlearning.dto.repetition.RepetitionResponse;
 import com.spacedlearning.entity.Module;
 import com.spacedlearning.entity.ModuleProgress;
 
 import lombok.RequiredArgsConstructor;
 
-/**
- * Mapper for ModuleProgress entity and DTOs
- */
 @Component
 @RequiredArgsConstructor
 public class ModuleProgressMapper extends AbstractGenericMapper<ModuleProgress, ModuleProgressDetailResponse> {
@@ -30,22 +24,19 @@ public class ModuleProgressMapper extends AbstractGenericMapper<ModuleProgress, 
 
     @Override
     protected ModuleProgress mapDtoToEntity(final ModuleProgressDetailResponse dto, final ModuleProgress entity) {
-        if (dto == null || entity == null) {
+        if ((dto == null) || (entity == null)) {
             return entity;
         }
 
         if (dto.getFirstLearningDate() != null) {
             entity.setFirstLearningDate(dto.getFirstLearningDate());
         }
-
         if (dto.getCyclesStudied() != null) {
             entity.setCyclesStudied(dto.getCyclesStudied());
         }
-
         if (dto.getNextStudyDate() != null) {
             entity.setNextStudyDate(dto.getNextStudyDate());
         }
-
         if (dto.getPercentComplete() != null) {
             entity.setPercentComplete(dto.getPercentComplete());
         }
@@ -59,7 +50,7 @@ public class ModuleProgressMapper extends AbstractGenericMapper<ModuleProgress, 
             return null;
         }
 
-        final List<RepetitionResponse> repetitions = repetitionMapper.toDtoList(entity.getRepetitions());
+        final var repetitions = this.repetitionMapper.toDtoList(entity.getRepetitions());
 
         return ModuleProgressDetailResponse.builder()
                 .id(entity.getId())
@@ -81,50 +72,33 @@ public class ModuleProgressMapper extends AbstractGenericMapper<ModuleProgress, 
             return null;
         }
 
-        final ModuleProgress progress = new ModuleProgress();
-
-        // Module will be set separately
+        final var progress = new ModuleProgress();
         progress.setFirstLearningDate(dto.getFirstLearningDate());
         progress.setCyclesStudied(dto.getCyclesStudied());
         progress.setNextStudyDate(dto.getNextStudyDate());
         progress.setPercentComplete(dto.getPercentComplete());
-        progress.setRepetitions(new ArrayList<>());
+        progress.setRepetitions(Collections.emptyList());
 
         return progress;
     }
 
-    /**
-     * Maps a ModuleProgressCreateRequest DTO to a ModuleProgress entity
-     *
-     * @param request The ModuleProgressCreateRequest DTO
-     * @param module  The Module entity
-     * @return ModuleProgress entity
-     */
     public ModuleProgress toEntity(final ModuleProgressCreateRequest request, final Module module) {
         if (request == null) {
             return null;
         }
-
         Objects.requireNonNull(module, "Module must not be null");
 
-        final ModuleProgress progress = new ModuleProgress();
+        final var progress = new ModuleProgress();
         progress.setModule(module);
         progress.setFirstLearningDate(request.getFirstLearningDate());
-        progress.setCyclesStudied(Optional.ofNullable(request.getCyclesStudied()).orElse(progress.getCyclesStudied()));
+        progress.setCyclesStudied(request.getCyclesStudied());
         progress.setNextStudyDate(request.getNextStudyDate());
-        progress.setPercentComplete(
-                Optional.ofNullable(request.getPercentComplete()).orElse(progress.getPercentComplete()));
-        progress.setRepetitions(new ArrayList<>());
+        progress.setPercentComplete(request.getPercentComplete());
+        progress.setRepetitions(Collections.emptyList());
 
         return progress;
     }
 
-    /**
-     * Maps a ModuleProgress entity to a ModuleProgressSummaryResponse DTO
-     *
-     * @param entity The ModuleProgress entity
-     * @return ModuleProgressSummaryResponse DTO
-     */
     public ModuleProgressSummaryResponse toSummaryDto(final ModuleProgress entity) {
         if (entity == null) {
             return null;
@@ -143,13 +117,6 @@ public class ModuleProgressMapper extends AbstractGenericMapper<ModuleProgress, 
                 .build();
     }
 
-    /**
-     * Maps a list of ModuleProgress entities to a list of
-     * ModuleProgressSummaryResponse DTOs
-     *
-     * @param entities The ModuleProgress entities
-     * @return List of ModuleProgressSummaryResponse DTOs
-     */
     public List<ModuleProgressSummaryResponse> toSummaryDtoList(final List<ModuleProgress> entities) {
         if (CollectionUtils.isEmpty(entities)) {
             return Collections.emptyList();
@@ -161,30 +128,20 @@ public class ModuleProgressMapper extends AbstractGenericMapper<ModuleProgress, 
                 .toList();
     }
 
-    /**
-     * Updates a ModuleProgress entity from a ModuleProgressUpdateRequest DTO
-     *
-     * @param request The ModuleProgressUpdateRequest DTO
-     * @param entity  The ModuleProgress entity to update
-     * @return Updated ModuleProgress entity
-     */
     public ModuleProgress updateFromDto(final ModuleProgressUpdateRequest request, final ModuleProgress entity) {
-        if (request == null || entity == null) {
+        if ((request == null) || (entity == null)) {
             return entity;
         }
 
         if (request.getFirstLearningDate() != null) {
             entity.setFirstLearningDate(request.getFirstLearningDate());
         }
-
         if (request.getCyclesStudied() != null) {
             entity.setCyclesStudied(request.getCyclesStudied());
         }
-
         if (request.getNextStudyDate() != null) {
             entity.setNextStudyDate(request.getNextStudyDate());
         }
-
         if (request.getPercentComplete() != null) {
             entity.setPercentComplete(request.getPercentComplete());
         }

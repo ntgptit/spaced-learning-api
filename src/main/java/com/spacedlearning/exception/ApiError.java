@@ -8,29 +8,32 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.EqualsAndHashCode;
+import lombok.Getter;
+import lombok.ToString;
 
 /**
  * Standard error response structure for the API.
  */
-@Data
-@Builder
-@NoArgsConstructor
+@Getter
+@ToString
+@EqualsAndHashCode
+@Builder(toBuilder = true)
 @AllArgsConstructor
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class ApiError {
 
-	@JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd HH:mm:ss")
-	private LocalDateTime timestamp;
+    @Builder.Default
+    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd HH:mm:ss")
+    private final LocalDateTime timestamp = LocalDateTime.now();
 
-	private int status;
-	private String error;
-	private String message;
-	private String path;
+    private final int status;
+    private final String error;
+    private final String message;
+    private final String path;
 
-	/**
-	 * Detailed field-level errors when applicable
-	 */
-	private Map<String, String> errors;
+    /**
+     * Detailed field-level errors when applicable
+     */
+    private final Map<String, String> errors;
 }
