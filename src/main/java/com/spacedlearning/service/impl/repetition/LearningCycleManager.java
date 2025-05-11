@@ -43,9 +43,9 @@ public class LearningCycleManager {
                 progressId, RepetitionStatus.COMPLETED);
 
         if (completed < total) {
-            throw SpacedLearningException.validationError(
-                    this.messageSource, "error.progress.incompleteRepetitions",
-                    completed, total, progressId);
+            log.warn(
+                    "ModuleProgress ID {} has {} of {} repetitions completed. Proceeding to mark the rest as completed.",
+                    progressId, completed, total);
         }
 
         final var current = Optional.ofNullable(progress.getCyclesStudied()).orElse(CycleStudied.FIRST_TIME);
