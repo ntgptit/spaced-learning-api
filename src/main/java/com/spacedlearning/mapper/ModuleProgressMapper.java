@@ -56,6 +56,9 @@ public class ModuleProgressMapper extends AbstractGenericMapper<ModuleProgress, 
                 .id(entity.getId())
                 .moduleId(entity.getModule().getId())
                 .moduleTitle(entity.getModule().getTitle())
+                .moduleUrl(entity.getModule().getUrl()) // Mapping URL từ Module entity
+                .userId(null) // Giữ là null vì đã bỏ userId ở ModuleProgress
+                .userName(null) // Giữ là null vì đã bỏ userName ở ModuleProgress
                 .firstLearningDate(entity.getFirstLearningDate())
                 .cyclesStudied(entity.getCyclesStudied())
                 .nextStudyDate(entity.getNextStudyDate())

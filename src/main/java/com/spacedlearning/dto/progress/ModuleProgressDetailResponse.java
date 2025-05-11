@@ -1,4 +1,3 @@
-// File: src/main/java/com/spacedlearning/dto/progress/ModuleProgressDetailResponse.java
 package com.spacedlearning.dto.progress;
 
 import java.math.BigDecimal;
@@ -23,16 +22,17 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class ModuleProgressDetailResponse {
-	private UUID id;
-	private UUID moduleId;
-	private String moduleTitle;
-	private UUID userId;
-	private String userName;
-	private LocalDate firstLearningDate;
-	private CycleStudied cyclesStudied;
-	private LocalDate nextStudyDate;
-	private BigDecimal percentComplete;
-	private LocalDateTime createdAt;
-	private LocalDateTime updatedAt;
-	private List<RepetitionResponse> repetitions;
+    private UUID id;
+    private UUID moduleId;
+    private String moduleTitle;
+    private String moduleUrl; // URL của module để frontend sử dụng
+    private UUID userId;
+    private String userName;
+    private LocalDate firstLearningDate;
+    private CycleStudied cyclesStudied;
+    private LocalDate nextStudyDate;
+    private BigDecimal percentComplete;
+    private LocalDateTime createdAt;
+    private LocalDateTime updatedAt;
+    private List<RepetitionResponse> repetitions;
 }
