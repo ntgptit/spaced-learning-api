@@ -1,5 +1,6 @@
-// File: src/main/java/com/spacedlearning/dto/module/ModuleUpdateRequest.java
 package com.spacedlearning.dto.module;
+
+import org.hibernate.validator.constraints.URL;
 
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Size;
@@ -17,12 +18,16 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class ModuleUpdateRequest {
 
-	@Min(value = 1, message = "Module number must be at least 1")
-	private Integer moduleNo;
+    @Min(value = 1, message = "Module number must be at least 1")
+    private Integer moduleNo;
 
-	@Size(max = 255, message = "Title must not exceed 255 characters")
-	private String title;
+    @Size(max = 255, message = "Title must not exceed 255 characters")
+    private String title;
 
-	@Min(value = 0, message = "Word count cannot be negative")
-	private Integer wordCount;
+    @Min(value = 0, message = "Word count cannot be negative")
+    private Integer wordCount;
+
+    @URL(message = "The URL must be a valid URL format")
+    @Size(max = 500, message = "URL must not exceed 500 characters")
+    private String url;
 }

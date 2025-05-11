@@ -37,6 +37,8 @@ public class ModuleMapper extends AbstractGenericMapper<Module, ModuleDetailResp
         if (dto.getWordCount() != null) {
             entity.setWordCount(dto.getWordCount());
         }
+        // Map URL field
+        entity.setUrl(dto.getUrl());
         return entity;
     }
 
@@ -51,6 +53,7 @@ public class ModuleMapper extends AbstractGenericMapper<Module, ModuleDetailResp
                 .moduleNo(entity.getModuleNo())
                 .title(entity.getTitle())
                 .wordCount(entity.getWordCount())
+                .url(entity.getUrl())
                 .createdAt(entity.getCreatedAt())
                 .updatedAt(entity.getUpdatedAt())
                 .progress(progress)
@@ -63,6 +66,7 @@ public class ModuleMapper extends AbstractGenericMapper<Module, ModuleDetailResp
         module.setModuleNo(dto.getModuleNo());
         module.setTitle(dto.getTitle());
         module.setWordCount(dto.getWordCount());
+        module.setUrl(dto.getUrl());
         return module;
     }
 
@@ -83,6 +87,7 @@ public class ModuleMapper extends AbstractGenericMapper<Module, ModuleDetailResp
         module.setModuleNo(request.getModuleNo());
         module.setTitle(request.getTitle());
         module.setWordCount(Optional.ofNullable(request.getWordCount()).orElse(0));
+        module.setUrl(request.getUrl());
         module.setProgress(new ArrayList<>());
         return module;
     }
@@ -104,6 +109,7 @@ public class ModuleMapper extends AbstractGenericMapper<Module, ModuleDetailResp
                 .moduleNo(entity.getModuleNo())
                 .title(entity.getTitle())
                 .wordCount(entity.getWordCount())
+                .url(entity.getUrl())
                 .createdAt(entity.getCreatedAt())
                 .updatedAt(entity.getUpdatedAt())
                 .build();
@@ -144,6 +150,11 @@ public class ModuleMapper extends AbstractGenericMapper<Module, ModuleDetailResp
 
         if (request.getWordCount() != null) {
             entity.setWordCount(request.getWordCount());
+        }
+
+        // Update URL if provided in request
+        if (request.getUrl() != null) {
+            entity.setUrl(request.getUrl());
         }
 
         return entity;
