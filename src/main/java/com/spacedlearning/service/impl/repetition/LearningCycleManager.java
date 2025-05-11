@@ -43,9 +43,8 @@ public class LearningCycleManager {
                 progressId, RepetitionStatus.COMPLETED);
 
         if (completed < total) {
-            log.warn(
-                    "ModuleProgress ID {} has {} of {} repetitions completed. Proceeding to mark the rest as completed.",
-                    progressId, completed, total);
+            log.info("Not all repetitions completed yet for progress ID: {} ({} of {})", progressId, completed, total);
+            return;
         }
 
         final var current = Optional.ofNullable(progress.getCyclesStudied()).orElse(CycleStudied.FIRST_TIME);
