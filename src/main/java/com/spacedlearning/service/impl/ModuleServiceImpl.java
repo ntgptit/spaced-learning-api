@@ -6,7 +6,9 @@ import java.util.UUID;
 
 import org.springframework.context.MessageSource;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -113,7 +115,15 @@ public class ModuleServiceImpl implements ModuleService {
             throw SpacedLearningException.resourceNotFound(this.messageSource, RESOURCE_BOOK, bookId);
         }
 
-        return this.moduleRepository.findByBookId(bookId, pageable)
+        var effectivePageable = pageable;
+        if (pageable.getSort().isUnsorted()) {
+            effectivePageable = PageRequest.of(
+                    pageable.getPageNumber(),
+                    pageable.getPageSize(),
+                    Sort.by(Sort.Direction.ASC, "moduleNo"));
+        }
+
+        return this.moduleRepository.findByBookId(bookId, effectivePageable)
                 .map(this.moduleMapper::toSummaryDto);
     }
 

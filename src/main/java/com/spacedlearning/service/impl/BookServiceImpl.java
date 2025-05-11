@@ -7,7 +7,9 @@ import java.util.UUID;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.context.MessageSource;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -78,7 +80,16 @@ public class BookServiceImpl implements BookService {
         Objects.requireNonNull(pageable, PAGEABLE_MUST_NOT_BE_NULL);
         log.debug("Finding all books with pagination: {}", pageable);
 
-        return this.bookRepository.findAll(pageable).map(this.bookMapper::toSummaryDto);
+        var effectivePageable = pageable;
+        if (pageable.getSort().isUnsorted()) {
+            effectivePageable = PageRequest.of(
+                    pageable.getPageNumber(),
+                    pageable.getPageSize(),
+                    Sort.by(Sort.Direction.DESC, "bookNo"));
+        }
+
+        return this.bookRepository.findAll(effectivePageable)
+                .map(this.bookMapper::toSummaryDto);
     }
 
     @Override
