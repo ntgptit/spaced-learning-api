@@ -13,6 +13,7 @@ import com.spacedlearning.dto.progress.ModuleProgressCreateRequest;
 import com.spacedlearning.dto.progress.ModuleProgressDetailResponse;
 import com.spacedlearning.dto.progress.ModuleProgressSummaryResponse;
 import com.spacedlearning.dto.progress.ModuleProgressUpdateRequest;
+import com.spacedlearning.entity.enums.CycleStudied;
 import com.spacedlearning.exception.SpacedLearningException;
 import com.spacedlearning.mapper.ModuleProgressMapper;
 import com.spacedlearning.repository.ModuleProgressRepository;
@@ -51,6 +52,7 @@ public class ModuleProgressServiceImpl implements ModuleProgressService {
         }
 
         final var progress = this.progressMapper.toEntity(request, module);
+        progress.setCyclesStudied(CycleStudied.FIRST_TIME);
         final var savedProgress = this.progressRepository.save(progress);
 
         log.info("Module progress created with ID: {}", savedProgress.getId());
