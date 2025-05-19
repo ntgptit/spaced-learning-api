@@ -1,9 +1,18 @@
 package com.spacedlearning.service.impl;
 
-import java.util.List;
-import java.util.Objects;
-import java.util.UUID;
-
+import com.spacedlearning.dto.module.ModuleCreateRequest;
+import com.spacedlearning.dto.module.ModuleDetailResponse;
+import com.spacedlearning.dto.module.ModuleSummaryResponse;
+import com.spacedlearning.dto.module.ModuleUpdateRequest;
+import com.spacedlearning.exception.SpacedLearningException;
+import com.spacedlearning.mapper.ModuleMapper;
+import com.spacedlearning.repository.BookRepository;
+import com.spacedlearning.repository.GrammarRepository;
+import com.spacedlearning.repository.ModuleRepository;
+import com.spacedlearning.repository.VocabularyRepository;
+import com.spacedlearning.service.ModuleService;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.MessageSource;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -12,18 +21,9 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.spacedlearning.dto.module.ModuleCreateRequest;
-import com.spacedlearning.dto.module.ModuleDetailResponse;
-import com.spacedlearning.dto.module.ModuleSummaryResponse;
-import com.spacedlearning.dto.module.ModuleUpdateRequest;
-import com.spacedlearning.exception.SpacedLearningException;
-import com.spacedlearning.mapper.ModuleMapper;
-import com.spacedlearning.repository.BookRepository;
-import com.spacedlearning.repository.ModuleRepository;
-import com.spacedlearning.service.ModuleService;
-
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import java.util.List;
+import java.util.Objects;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -37,6 +37,8 @@ public class ModuleServiceImpl implements ModuleService {
 
     private final ModuleRepository moduleRepository;
     private final BookRepository bookRepository;
+    private final VocabularyRepository vocabularyRepository;
+    private final GrammarRepository grammarRepository;
     private final ModuleMapper moduleMapper;
     private final MessageSource messageSource;
 
@@ -178,5 +180,31 @@ public class ModuleServiceImpl implements ModuleService {
 
         log.info("Module updated successfully with ID: {}", updatedModule.getId());
         return this.moduleMapper.toDto(updatedModule);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public int getVocabularyCount(UUID moduleId) {
+        Objects.requireNonNull(moduleId, MODULE_ID_MUST_NOT_BE_NULL);
+        log.debug("Getting vocabulary count for module ID: {}", moduleId);
+
+        if (!this.moduleRepository.existsById(moduleId)) {
+            throw SpacedLearningException.resourceNotFound(this.messageSource, RESOURCE_MODULE, moduleId);
+        }
+
+        return this.vocabularyRepository.countByModuleId(moduleId);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public int getGrammarCount(UUID moduleId) {
+        Objects.requireNonNull(moduleId, MODULE_ID_MUST_NOT_BE_NULL);
+        log.debug("Getting grammar count for module ID: {}", moduleId);
+
+        if (!this.moduleRepository.existsById(moduleId)) {
+            throw SpacedLearningException.resourceNotFound(this.messageSource, RESOURCE_MODULE, moduleId);
+        }
+
+        return this.grammarRepository.countByModuleId(moduleId);
     }
 }

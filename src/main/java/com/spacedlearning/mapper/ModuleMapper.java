@@ -1,21 +1,21 @@
 package com.spacedlearning.mapper;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Optional;
-
-import org.apache.commons.lang3.StringUtils;
-import org.springframework.stereotype.Component;
-
+import com.spacedlearning.dto.grammar.GrammarResponse;
 import com.spacedlearning.dto.module.ModuleCreateRequest;
 import com.spacedlearning.dto.module.ModuleDetailResponse;
 import com.spacedlearning.dto.module.ModuleSummaryResponse;
 import com.spacedlearning.dto.module.ModuleUpdateRequest;
+import com.spacedlearning.dto.vocabulary.VocabularyResponse;
 import com.spacedlearning.entity.Book;
 import com.spacedlearning.entity.Module;
-
 import lombok.RequiredArgsConstructor;
+import org.apache.commons.lang3.StringUtils;
+import org.springframework.stereotype.Component;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Optional;
 
 /**
  * Mapper for Module entity and its DTOs.
@@ -25,6 +25,8 @@ import lombok.RequiredArgsConstructor;
 public class ModuleMapper extends AbstractGenericMapper<Module, ModuleDetailResponse> {
 
     private final ModuleProgressMapper progressMapper;
+    private final VocabularyMapper vocabularyMapper;
+    private final GrammarMapper grammarMapper;
 
     @Override
     protected Module mapDtoToEntity(ModuleDetailResponse dto, Module entity) {
@@ -46,6 +48,17 @@ public class ModuleMapper extends AbstractGenericMapper<Module, ModuleDetailResp
     protected ModuleDetailResponse mapToDto(Module entity) {
         final var progress = this.progressMapper.toSummaryDtoList(entity.getProgress());
 
+        List<VocabularyResponse> vocabularies = Collections.emptyList();
+        List<GrammarResponse> grammars = Collections.emptyList();
+
+        if (entity.getVocabularies() != null && !entity.getVocabularies().isEmpty()) {
+            vocabularies = this.vocabularyMapper.toDtoList(entity.getVocabularies());
+        }
+
+        if (entity.getGrammars() != null && !entity.getGrammars().isEmpty()) {
+            grammars = this.grammarMapper.toDtoList(entity.getGrammars());
+        }
+
         return ModuleDetailResponse.builder()
                 .id(entity.getId())
                 .bookId(entity.getBook().getId())
@@ -57,6 +70,10 @@ public class ModuleMapper extends AbstractGenericMapper<Module, ModuleDetailResp
                 .createdAt(entity.getCreatedAt())
                 .updatedAt(entity.getUpdatedAt())
                 .progress(progress)
+                .vocabularies(vocabularies)
+                .grammars(grammars)
+                .vocabularyCount(entity.getVocabularies().size())
+                .grammarCount(entity.getGrammars().size())
                 .build();
     }
 
@@ -103,6 +120,17 @@ public class ModuleMapper extends AbstractGenericMapper<Module, ModuleDetailResp
             return null;
         }
 
+        int vocabularyCount = 0;
+        int grammarCount = 0;
+
+        if (entity.getVocabularies() != null) {
+            vocabularyCount = entity.getVocabularies().size();
+        }
+
+        if (entity.getGrammars() != null) {
+            grammarCount = entity.getGrammars().size();
+        }
+
         return ModuleSummaryResponse.builder()
                 .id(entity.getId())
                 .bookId(entity.getBook().getId())
@@ -112,6 +140,8 @@ public class ModuleMapper extends AbstractGenericMapper<Module, ModuleDetailResp
                 .url(entity.getUrl())
                 .createdAt(entity.getCreatedAt())
                 .updatedAt(entity.getUpdatedAt())
+                .vocabularyCount(vocabularyCount)
+                .grammarCount(grammarCount)
                 .build();
     }
 
