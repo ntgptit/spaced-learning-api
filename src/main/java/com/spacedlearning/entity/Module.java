@@ -52,6 +52,7 @@ public class Module extends BaseEntity {
     @OneToMany(mappedBy = "module", fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private List<Vocabulary> vocabularies = new ArrayList<>();
+    
     @OneToMany(mappedBy = "module", fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private List<Grammar> grammars = new ArrayList<>();
