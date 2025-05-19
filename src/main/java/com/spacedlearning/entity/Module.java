@@ -48,7 +48,7 @@ public class Module extends BaseEntity {
     @Builder.Default
     @OneToMany(mappedBy = "module", fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
     private List<ModuleProgress> progress = new ArrayList<>();
-    
+
     @OneToMany(mappedBy = "module", fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private List<Vocabulary> vocabularies = new ArrayList<>();
@@ -56,46 +56,4 @@ public class Module extends BaseEntity {
     @Builder.Default
     private List<Grammar> grammars = new ArrayList<>();
 
-    public ModuleProgress addProgress(ModuleProgress moduleProgress) {
-        this.progress.add(moduleProgress);
-        moduleProgress.setModule(this);
-        return moduleProgress;
-    }
-
-    public boolean removeProgress(ModuleProgress moduleProgress) {
-        final var removed = this.progress.remove(moduleProgress);
-        if (removed) {
-            moduleProgress.setModule(null);
-        }
-        return removed;
-    }
-
-    // Helper methods
-    public Vocabulary addVocabulary(Vocabulary vocabulary) {
-        this.vocabularies.add(vocabulary);
-        vocabulary.setModule(this);
-        return vocabulary;
-    }
-
-    public boolean removeVocabulary(Vocabulary vocabulary) {
-        final var removed = this.vocabularies.remove(vocabulary);
-        if (removed) {
-            vocabulary.setModule(null);
-        }
-        return removed;
-    }
-
-    public Grammar addGrammar(Grammar grammar) {
-        this.grammars.add(grammar);
-        grammar.setModule(this);
-        return grammar;
-    }
-
-    public boolean removeGrammar(Grammar grammar) {
-        final var removed = this.grammars.remove(grammar);
-        if (removed) {
-            grammar.setModule(null);
-        }
-        return removed;
-    }
 }
