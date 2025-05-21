@@ -1,4 +1,3 @@
-// GrammarMapper.java
 package com.spacedlearning.mapper;
 
 import com.spacedlearning.dto.grammar.GrammarCreateRequest;
@@ -22,12 +21,15 @@ public class GrammarMapper extends AbstractGenericMapper<Grammar, GrammarRespons
             return entity;
         }
 
-        if (StringUtils.isNotBlank(dto.getTitle())) {
-            entity.setTitle(dto.getTitle());
+        if (StringUtils.isNotBlank(dto.getGrammarPattern())) {
+            entity.setGrammarPattern(dto.getGrammarPattern());
         }
-        entity.setExplanation(dto.getExplanation());
-        entity.setUsageNote(dto.getUsageNote());
-        entity.setExample(dto.getExample());
+        entity.setDefinition(dto.getDefinition());
+        entity.setStructure(dto.getStructure());
+        entity.setConjugation(dto.getConjugation());
+        entity.setExamples(dto.getExamples());
+        entity.setCommonPhrases(dto.getCommonPhrases());
+        entity.setNotes(dto.getNotes());
 
         return entity;
     }
@@ -42,10 +44,13 @@ public class GrammarMapper extends AbstractGenericMapper<Grammar, GrammarRespons
                 .id(entity.getId())
                 .moduleId(entity.getModule().getId())
                 .moduleName(entity.getModule().getTitle())
-                .title(entity.getTitle())
-                .explanation(entity.getExplanation())
-                .usageNote(entity.getUsageNote())
-                .example(entity.getExample())
+                .grammarPattern(entity.getGrammarPattern())
+                .definition(entity.getDefinition())
+                .structure(entity.getStructure())
+                .conjugation(entity.getConjugation())
+                .examples(entity.getExamples())
+                .commonPhrases(entity.getCommonPhrases())
+                .notes(entity.getNotes())
                 .createdAt(entity.getCreatedAt())
                 .updatedAt(entity.getUpdatedAt())
                 .build();
@@ -58,10 +63,13 @@ public class GrammarMapper extends AbstractGenericMapper<Grammar, GrammarRespons
         }
 
         final var grammar = new Grammar();
-        grammar.setTitle(dto.getTitle());
-        grammar.setExplanation(dto.getExplanation());
-        grammar.setUsageNote(dto.getUsageNote());
-        grammar.setExample(dto.getExample());
+        grammar.setGrammarPattern(dto.getGrammarPattern());
+        grammar.setDefinition(dto.getDefinition());
+        grammar.setStructure(dto.getStructure());
+        grammar.setConjugation(dto.getConjugation());
+        grammar.setExamples(dto.getExamples());
+        grammar.setCommonPhrases(dto.getCommonPhrases());
+        grammar.setNotes(dto.getNotes());
 
         return grammar;
     }
@@ -73,10 +81,13 @@ public class GrammarMapper extends AbstractGenericMapper<Grammar, GrammarRespons
 
         final var grammar = new Grammar();
         grammar.setModule(module);
-        grammar.setTitle(request.getTitle());
-        grammar.setExplanation(request.getExplanation());
-        grammar.setUsageNote(request.getUsageNote());
-        grammar.setExample(request.getExample());
+        grammar.setGrammarPattern(request.getGrammarPattern());
+        grammar.setDefinition(request.getDefinition());
+        grammar.setStructure(request.getStructure());
+        grammar.setConjugation(request.getConjugation());
+        grammar.setExamples(request.getExamples());
+        grammar.setCommonPhrases(request.getCommonPhrases());
+        grammar.setNotes(request.getNotes());
 
         return grammar;
     }
@@ -86,20 +97,32 @@ public class GrammarMapper extends AbstractGenericMapper<Grammar, GrammarRespons
             return entity;
         }
 
-        if (StringUtils.isNotBlank(request.getTitle())) {
-            entity.setTitle(request.getTitle());
+        if (StringUtils.isNotBlank(request.getGrammarPattern())) {
+            entity.setGrammarPattern(request.getGrammarPattern());
         }
 
-        if (request.getExplanation() != null) {
-            entity.setExplanation(request.getExplanation());
+        if (request.getDefinition() != null) {
+            entity.setDefinition(request.getDefinition());
         }
 
-        if (request.getUsageNote() != null) {
-            entity.setUsageNote(request.getUsageNote());
+        if (request.getStructure() != null) {
+            entity.setStructure(request.getStructure());
         }
 
-        if (request.getExample() != null) {
-            entity.setExample(request.getExample());
+        if (request.getConjugation() != null) {
+            entity.setConjugation(request.getConjugation());
+        }
+
+        if (request.getExamples() != null) {
+            entity.setExamples(request.getExamples());
+        }
+
+        if (request.getCommonPhrases() != null) {
+            entity.setCommonPhrases(request.getCommonPhrases());
+        }
+
+        if (request.getNotes() != null) {
+            entity.setNotes(request.getNotes());
         }
 
         return entity;

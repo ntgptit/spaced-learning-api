@@ -1,4 +1,3 @@
-// GrammarResponse.java
 package com.spacedlearning.dto.grammar;
 
 import lombok.AllArgsConstructor;
@@ -17,10 +16,13 @@ public class GrammarResponse {
     private UUID id;
     private UUID moduleId;
     private String moduleName;
-    private String title;
-    private String explanation;
-    private String usageNote;
-    private String example;
+    private String grammarPattern;
+    private String definition;
+    private String structure;
+    private String conjugation;
+    private String examples;
+    private String commonPhrases;
+    private String notes;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

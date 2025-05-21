@@ -1,4 +1,3 @@
-// GrammarCreateRequest.java
 package com.spacedlearning.dto.grammar;
 
 import jakarta.validation.constraints.NotBlank;
@@ -20,13 +19,14 @@ public class GrammarCreateRequest {
     @NotNull(message = "Module ID is required")
     private UUID moduleId;
 
-    @NotBlank(message = "Title is required")
-    @Size(max = 100, message = "Title must not exceed 100 characters")
-    private String title;
+    @NotBlank(message = "Grammar pattern is required")
+    @Size(max = 100, message = "Grammar pattern must not exceed 100 characters")
+    private String grammarPattern;
 
-    private String explanation;
-
-    private String usageNote;
-
-    private String example;
+    private String definition;
+    private String structure;
+    private String conjugation;
+    private String examples;
+    private String commonPhrases;
+    private String notes;
 }

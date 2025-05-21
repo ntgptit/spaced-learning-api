@@ -89,7 +89,7 @@ public class GrammarServiceImpl implements GrammarService {
             throw SpacedLearningException.resourceNotFound(this.messageSource, RESOURCE_MODULE, moduleId);
         }
 
-        final var grammars = this.grammarRepository.findByModuleIdOrderByTitleAsc(moduleId);
+        final var grammars = this.grammarRepository.findByModuleIdOrderByGrammarPatternAsc(moduleId);
         return this.grammarMapper.toDtoList(grammars);
     }
 
@@ -127,7 +127,7 @@ public class GrammarServiceImpl implements GrammarService {
         Objects.requireNonNull(pageable, PAGEABLE_MUST_NOT_BE_NULL);
         log.debug("Searching grammars by title: {}, pageable: {}", title, pageable);
 
-        return this.grammarRepository.searchByTitle(title, pageable)
+        return this.grammarRepository.searchByGrammarPattern(title, pageable)
                 .map(this.grammarMapper::toDto);
     }
 

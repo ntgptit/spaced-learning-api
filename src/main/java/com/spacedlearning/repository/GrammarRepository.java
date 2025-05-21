@@ -15,12 +15,12 @@ import java.util.UUID;
 @Repository
 public interface GrammarRepository extends JpaRepository<Grammar, UUID> {
 
-    List<Grammar> findByModuleIdOrderByTitleAsc(UUID moduleId);
+    List<Grammar> findByModuleIdOrderByGrammarPatternAsc(UUID moduleId);
 
     Page<Grammar> findByModuleId(UUID moduleId, Pageable pageable);
 
-    @Query("SELECT g FROM Grammar g WHERE LOWER(g.title) LIKE LOWER(CONCAT('%', :title, '%')) AND g.deletedAt IS NULL")
-    Page<Grammar> searchByTitle(@Param("title") String title, Pageable pageable);
+    @Query("SELECT g FROM Grammar g WHERE LOWER(g.grammarPattern) LIKE LOWER(CONCAT('%', :pattern, '%')) AND g.deletedAt IS NULL")
+    Page<Grammar> searchByGrammarPattern(@Param("pattern") String pattern, Pageable pageable);
 
     @Query("SELECT COUNT(g) FROM Grammar g WHERE g.module.id = :moduleId AND g.deletedAt IS NULL")
     int countByModuleId(@Param("moduleId") UUID moduleId);

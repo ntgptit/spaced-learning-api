@@ -1,4 +1,3 @@
-// GrammarUpdateRequest.java
 package com.spacedlearning.dto.grammar;
 
 import jakarta.validation.constraints.Size;
@@ -13,12 +12,13 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class GrammarUpdateRequest {
 
-    @Size(max = 100, message = "Title must not exceed 100 characters")
-    private String title;
+    @Size(max = 100, message = "Grammar pattern must not exceed 100 characters")
+    private String grammarPattern;
 
-    private String explanation;
-
-    private String usageNote;
-
-    private String example;
+    private String definition;
+    private String structure;
+    private String conjugation;
+    private String examples;
+    private String commonPhrases;
+    private String notes;
 }
