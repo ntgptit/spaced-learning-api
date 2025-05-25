@@ -1,5 +1,17 @@
 package com.spacedlearning.service.impl;
 
+import java.util.List;
+import java.util.Objects;
+import java.util.UUID;
+
+import org.springframework.context.MessageSource;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import com.spacedlearning.dto.module.ModuleCreateRequest;
 import com.spacedlearning.dto.module.ModuleDetailResponse;
 import com.spacedlearning.dto.module.ModuleSummaryResponse;
@@ -11,19 +23,9 @@ import com.spacedlearning.repository.GrammarRepository;
 import com.spacedlearning.repository.ModuleRepository;
 import com.spacedlearning.repository.VocabularyRepository;
 import com.spacedlearning.service.ModuleService;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.context.MessageSource;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
-import java.util.List;
-import java.util.Objects;
-import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -124,7 +126,6 @@ public class ModuleServiceImpl implements ModuleService {
                     pageable.getPageSize(),
                     Sort.by(Sort.Direction.ASC, "moduleNo"));
         }
-
         return this.moduleRepository.findByBookId(bookId, effectivePageable)
                 .map(this.moduleMapper::toSummaryDto);
     }
@@ -143,6 +144,19 @@ public class ModuleServiceImpl implements ModuleService {
 
     @Override
     @Transactional(readOnly = true)
+    public int getGrammarCount(UUID moduleId) {
+        Objects.requireNonNull(moduleId, MODULE_ID_MUST_NOT_BE_NULL);
+        log.debug("Getting grammar count for module ID: {}", moduleId);
+
+        if (!this.moduleRepository.existsById(moduleId)) {
+            throw SpacedLearningException.resourceNotFound(this.messageSource, RESOURCE_MODULE, moduleId);
+        }
+
+        return this.grammarRepository.countByModuleId(moduleId);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public Integer getNextModuleNumber(UUID bookId) {
         Objects.requireNonNull(bookId, BOOK_ID_MUST_NOT_BE_NULL);
         log.debug("Getting next module number for book ID: {}", bookId);
@@ -153,6 +167,19 @@ public class ModuleServiceImpl implements ModuleService {
 
         final var maxModuleNo = this.moduleRepository.findMaxModuleNoByBookId(bookId);
         return maxModuleNo + 1;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public int getVocabularyCount(UUID moduleId) {
+        Objects.requireNonNull(moduleId, MODULE_ID_MUST_NOT_BE_NULL);
+        log.debug("Getting vocabulary count for module ID: {}", moduleId);
+
+        if (!this.moduleRepository.existsById(moduleId)) {
+            throw SpacedLearningException.resourceNotFound(this.messageSource, RESOURCE_MODULE, moduleId);
+        }
+
+        return this.vocabularyRepository.countByModuleId(moduleId);
     }
 
     @Override
@@ -180,31 +207,5 @@ public class ModuleServiceImpl implements ModuleService {
 
         log.info("Module updated successfully with ID: {}", updatedModule.getId());
         return this.moduleMapper.toDto(updatedModule);
-    }
-
-    @Override
-    @Transactional(readOnly = true)
-    public int getVocabularyCount(UUID moduleId) {
-        Objects.requireNonNull(moduleId, MODULE_ID_MUST_NOT_BE_NULL);
-        log.debug("Getting vocabulary count for module ID: {}", moduleId);
-
-        if (!this.moduleRepository.existsById(moduleId)) {
-            throw SpacedLearningException.resourceNotFound(this.messageSource, RESOURCE_MODULE, moduleId);
-        }
-
-        return this.vocabularyRepository.countByModuleId(moduleId);
-    }
-
-    @Override
-    @Transactional(readOnly = true)
-    public int getGrammarCount(UUID moduleId) {
-        Objects.requireNonNull(moduleId, MODULE_ID_MUST_NOT_BE_NULL);
-        log.debug("Getting grammar count for module ID: {}", moduleId);
-
-        if (!this.moduleRepository.existsById(moduleId)) {
-            throw SpacedLearningException.resourceNotFound(this.messageSource, RESOURCE_MODULE, moduleId);
-        }
-
-        return this.grammarRepository.countByModuleId(moduleId);
     }
 }
